@@ -132,8 +132,8 @@ export default class TerrainByProxyTile {
                 }
             }
         )
-        map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': this.exaggeration });
-        // map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': 1.0 });
+        // map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': this.exaggeration });
+        map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': 1.0 });
         map.addLayer(
             {
                 id: this.proxyLayerID,
@@ -149,14 +149,20 @@ export default class TerrainByProxyTile {
 
     initGUI() {
         this.gui = new dat.GUI()
-        this.gui.add(this, 'altitudeDeg', 0, 90).step(1).onChange(() => { this.map.triggerRepaint() })
-        this.gui.add(this, 'azimuthDeg', 0, 360).step(1).onChange(() => { this.map.triggerRepaint() })
-        this.gui.add(this, 'exaggeration', 0, 30).step(1).onChange(() => { this.map.triggerRepaint() })
-        this.gui.add(this, 'withContour', 0, 1).step(1).onChange(() => { this.map.triggerRepaint() })
-        this.gui.add(this, 'withLighting', 0, 1).step(1).onChange(() => { this.map.triggerRepaint() })
+        // this.gui.add(this, 'altitudeDeg', 0, 90).step(1).onChange(() => { this.map.triggerRepaint() })
+        // this.gui.add(this, 'azimuthDeg', 0, 360).step(1).onChange(() => { this.map.triggerRepaint() })
+        // this.gui.add(this, 'exaggeration', 0, 30).step(1).onChange((value) => { this.map.setTerrain({ 'exaggeration': value }); this.map.triggerRepaint(); })
+        // this.gui.add(this, 'withContour', 0, 1).step(1).onChange(() => { this.map.triggerRepaint() })
+        // this.gui.add(this, 'withLighting', 0, 1).step(1).onChange(() => { this.map.triggerRepaint() })
+        this.gui.add(this, 'altitudeDeg', 0, 90).step(1).onChange(() => { })
+        this.gui.add(this, 'azimuthDeg', 0, 360).step(1).onChange(() => { })
+        this.gui.add(this, 'exaggeration', 0, 30).step(1).onChange((value) => { this.map.setTerrain({ 'exaggeration': value }); })
+        this.gui.add(this, 'withContour', 0, 1).step(1).onChange(() => { })
+        this.gui.add(this, 'withLighting', 0, 1).step(1).onChange(() => { })
 
-        this.gui.addColor(this, '_shallowColor').name('深水').onChange(value => { this.shallowColor = parseRGB(value) });
-        this.gui.addColor(this, '_deepColor').name('潜水').onChange(value => { this.deepColor = parseRGB(value) });
+
+        this.gui.addColor(this, '_shallowColor').name('深水').onChange(value => { this.shallowColor = parseRGB(value) })
+        this.gui.addColor(this, '_deepColor').name('潜水').onChange(value => { this.deepColor = parseRGB(value) })
 
         this.gui.add(this, 'SamplerParams0', 0, 100, 0.1).onChange(value => { this.SamplerParams[0] = value })
         this.gui.add(this, 'SamplerParams1', 0, 100, 0.1).onChange(value => { this.SamplerParams[1] = value })
@@ -167,9 +173,9 @@ export default class TerrainByProxyTile {
         this.gui.add(this, 'LightPosY', -1, 1, 0.1).onChange(value => { this.LightPos[1] = value })
         this.gui.add(this, 'LightPosZ', 0, 1, 0.1).onChange(value => { this.LightPos[2] = value })
 
-        this.gui.add(this, 'specularPower', 0, 1000, 1).onChange(value => { this.specularPower = value })
-        
-        this.gui.add(this, "mixAlpha", 0, 1, 0.01).onChange(value => { this.mixAlpha = value })
+        this.gui.add(this, 'specularPower', 0, 1000, 1).onChange(() => { })
+
+        this.gui.add(this, "mixAlpha", 0, 1, 0.01).onChange(() => { })
 
     }
 
@@ -370,7 +376,7 @@ export default class TerrainByProxyTile {
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Pass 1: water surface normal pass 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-       
+
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.surfaceNormFbo)
         gl.viewport(0.0, 0.0, this.canvasWidth, this.canvasHeight)
         gl.clearColor(0.0, 0.0, 0.0, 0.0)
@@ -436,7 +442,7 @@ export default class TerrainByProxyTile {
 
 
             const uniformValues = {
-                'u_matrix': proxyTileProjMatrix,
+                'u_matrix': tileMatrix,
                 'u_skirt_height': skirt,
                 'u_exaggeration': this.exaggeration,
                 'u_dem_size': 514 - 2,
@@ -513,13 +519,13 @@ export default class TerrainByProxyTile {
             const mapboxProjMatrix = coord.projMatrix
             const posMatrix = tr.calculatePosMatrix(tile.tileID.toUnwrapped(), tr.worldSize);
 
-           const uniformValues = {
+            const uniformValues = {
                 'u_posMatrix': posMatrix,
                 'u_matrix': mapboxProjMatrix,
                 'u_exaggeration': this.exaggeration,
                 'u_dem_size': 514 - 2,
             }
-             const demTile = this.demStore.get(coord.key)
+            const demTile = this.demStore.get(coord.key)
             if (!demTile) { console.log('no dem tile for', coord.toString()); continue }
             const proxyId = tile.tileID.canonical;
             const demId = demTile.tileID.canonical;

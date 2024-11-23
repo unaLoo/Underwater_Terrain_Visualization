@@ -130,7 +130,7 @@ void main() {
     vec3 viewDir = normalize(-1.0 * viewVector);
 
     vec3 halfwayDir = normalize(lightDir + viewDir);
-    float NdotH = dot(normalWS, halfwayDir);
+    float NdotH = clamp(dot(normalWS, halfwayDir), 0.0, 1.0);
     vec3 specular = LightColor * specularColor * pow(NdotH, specularPower);
 
     waterColor += specular;

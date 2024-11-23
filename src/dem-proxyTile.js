@@ -1,10 +1,11 @@
 import { mat4, vec4 } from "gl-matrix"
 import { createShader, createTexture2D, loadImage, createFrameBuffer, createRenderBuffer, enableAllExtensions, createVBO, createIBO, createCustomMipmapTexture2D, createFboPoolforMipmapTexture, calculateMipmapLevels, createShaderFromCode } from "./glLib"
-// import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as dat from 'dat.gui'
 import earcut from 'earcut'
 import axios from "axios"
 import bbox from '@turf/bbox'
+import { MercatorCoordinate } from "mapbox-gl";
 
 class LRUCache {
     constructor(capacity) {
@@ -47,30 +48,29 @@ import meshCode from './shader/mesh.glsl'
 import contourCode from './shader/contour.glsl'
 import surfaceCode from './shader/waterSurface.glsl'
 import showCode from './shader/show.glsl'
+import modelCode from './shader/model.glsl'
 
 export default class TerrainByProxyTile {
 
-
     shallowColor = [84, 157, 255]
-    _shallowColor = `rgb(${this.shallowColor[0]}, ${this.shallowColor[1]}, ${this.shallowColor[2]})`
+    // _shallowColor = `rgb(${this.shallowColor[0]}, ${this.shallowColor[1]}, ${this.shallowColor[2]})`
     deepColor = [40, 116, 255]
-    _deepColor = `rgb(${this.deepColor[0]}, ${this.deepColor[1]}, ${this.deepColor[2]})`
+    // _deepColor = `rgb(${this.deepColor[0]}, ${this.deepColor[1]}, ${this.deepColor[2]})`
 
-    SamplerParams = [0.9, 3.1, 5.2, -70]
-    SamplerParams0 = 0.9
-    SamplerParams1 = 3.1
-    SamplerParams2 = 5.2
-    SamplerParams3 = -70
+    SamplerParams = [11.7, 19.3, 16.1, -66.6]
+    // SamplerParams0 = 0.9
+    // SamplerParams1 = 3.1
+    // SamplerParams2 = 5.2
+    // SamplerParams3 = -70
 
-    LightPos = [0.8, 0.5, 1.0]
-    LightPosX = 0.8
-    LightPosY = 0.5
-    LightPosZ = 1.0
+    LightPos = [0.98, 0.46, 1.0]
+    // LightPosX = 0.8
+    // LightPosY = 0.5
+    // LightPosZ = 1.0
 
     specularPower = 25
 
     maxzoom = 14
-
 
     constructor() {
 
@@ -106,6 +106,30 @@ export default class TerrainByProxyTile {
 
         // for mipmap
         this.level = 0
+
+        // this.modelConfig = {
+        //     modelScale: 0.000005,
+        //     modelPos: [120.53794466757358, 32.03551107103058],
+        //     // mercatorPos: MercatorCoordinate.fromLngLat(this.modelConfig.modelPos, 0)
+        // }
+        this.modelConfigs = [
+            {
+                modelScale: 0.000005,
+                modelZRotate: 0.0,
+                modelPos: [120.33794466757358, 32.03551107103058],
+                // mercatorPos: MercatorCoordinate.fromLngLat(this.modelConfig.modelPos, 0)
+            },
+            {
+                modelScale: 0.000005,
+                modelZRotate: 20.0,
+                modelPos: [120.43794466757358, 32.03551107103058],
+            },
+            {
+                modelScale: 0.000005,
+                modelZRotate: 45.0,
+                modelPos: [120.53794466757358, 32.03551107103058],
+            },
+        ]
 
     }
 
@@ -151,6 +175,19 @@ export default class TerrainByProxyTile {
     }
 
     initGUI() {
+
+
+        this._shallowColor = `rgb(${this.shallowColor[0]}, ${this.shallowColor[1]}, ${this.shallowColor[2]})`
+        this._deepColor = `rgb(${this.deepColor[0]}, ${this.deepColor[1]}, ${this.deepColor[2]})`
+        this.SamplerParams0 = this.SamplerParams[0]
+        this.SamplerParams1 = this.SamplerParams[1]
+        this.SamplerParams2 = this.SamplerParams[2]
+        this.SamplerParams3 = this.SamplerParams[3]
+        this.LightPosX = this.LightPos[0]
+        this.LightPosY = this.LightPos[1]
+        this.LightPosZ = this.LightPos[2]
+
+
         this.gui = new dat.GUI()
         // this.gui.add(this, 'altitudeDeg', 0, 90).step(1).onChange(() => { this.map.triggerRepaint() })
         // this.gui.add(this, 'azimuthDeg', 0, 360).step(1).onChange(() => { this.map.triggerRepaint() })
@@ -212,6 +249,7 @@ export default class TerrainByProxyTile {
         this.contourProgram = createShaderFromCode(gl, contourCode)
         this.surfaceProgram = createShaderFromCode(gl, surfaceCode)
         this.showProgram = createShaderFromCode(gl, showCode)
+        this.modelProgram = createShaderFromCode(gl, modelCode)
 
 
 
@@ -302,17 +340,21 @@ export default class TerrainByProxyTile {
         gl.bindVertexArray(null)
 
 
-
-
         //// contour pass /////
         this.contourFbo = createFrameBuffer(gl, [this.contourCanvasTexture], null, null)
-
-
 
         //// water surface pass ////
         this.surfaceFbo = createFrameBuffer(gl, [this.surfaceCanvasTexture], null, null)
 
 
+
+        //// model ////
+        const loader = new GLTFLoader();
+        let gltf = this.gltf = await loader.loadAsync('/model/wind_turbine/scene.gltf')
+        let supportMesh = gltf.scene.children[0].children[0].children[0].children[0].children[0]
+        let bladesMesh = gltf.scene.children[0].children[0].children[0].children[1].children[0]
+        bladesMesh.needRotate = true
+        this.meshes = [this.initMeshforModel(supportMesh), this.initMeshforModel(bladesMesh)]
 
 
 
@@ -622,6 +664,40 @@ export default class TerrainByProxyTile {
         // this.doDebug(this.contourCanvasTexture)
 
 
+
+
+        // Pass 3: Model Render Pass
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
+        gl.enable(gl.DEPTH_TEST)
+        gl.clear(gl.DEPTH_BUFFER_BIT)
+        // gl.enable(gl.CULL_FACE)
+        // gl.clearColor(0.2, 0.2, 0.2, 0.2)
+
+        gl.useProgram(this.modelProgram)
+        gl.uniformMatrix4fv(gl.getUniformLocation(this.modelProgram, 'uMatrix'), false, matrix)
+        gl.uniform3fv(gl.getUniformLocation(this.modelProgram, 'uLightPosition'), this.LightPos)
+
+        // for one model
+        this.models = new Array(this.modelConfigs.length)
+        for (let i = 0; i < this.modelConfigs.length; i++) {
+            const modelConfig = this.modelConfigs[i]
+            // forEach meshes, same meshes
+            this.meshes.forEach(mesh => {
+                let { modelMatrix, normalMatrix } = this.calcMatrixforModel(modelConfig, mesh, mesh.needRotate)
+                gl.uniformMatrix4fv(gl.getUniformLocation(this.modelProgram, 'uModelMatrix'), false, modelMatrix)
+                gl.uniformMatrix4fv(gl.getUniformLocation(this.modelProgram, 'uNormalMatrix'), false, normalMatrix)
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, mesh.texture);
+                gl.bindVertexArray(mesh.vao);
+                gl.drawElements(gl.TRIANGLES, mesh.geometry.index.count, gl.UNSIGNED_INT, 0);
+            })
+        }
+ 
+
+
+
         this.map.triggerRepaint()
     }
 
@@ -672,6 +748,74 @@ export default class TerrainByProxyTile {
             }
         }
         return accumulatedDrapes
+    }
+
+
+    calcMatrixforModel(modelConfig, mesh, rotate = false) {
+        let mercatorPos = MercatorCoordinate.fromLngLat(modelConfig.modelPos, 0)
+        let modelMatrix = mat4.create()
+        mat4.translate(modelMatrix, modelMatrix, [mercatorPos.x, mercatorPos.y, 0])
+        mat4.scale(modelMatrix, modelMatrix, [modelConfig.modelScale, modelConfig.modelScale, modelConfig.modelScale])
+        mat4.rotateX(modelMatrix, modelMatrix, 0.5 * Math.PI)
+        mat4.rotateY(modelMatrix, modelMatrix, modelConfig.modelZRotate)
+        mat4.multiply(modelMatrix, modelMatrix, mesh.matrixWorld.elements)
+        rotate && mat4.rotateZ(modelMatrix, modelMatrix, this.frame * 0.05)
+
+        let normalMatrix = mat4.create()
+        mat4.invert(normalMatrix, modelMatrix)
+        mat4.transpose(normalMatrix, normalMatrix)
+        return {
+            modelMatrix,
+            normalMatrix
+        }
+    }
+
+    initMeshforModel(mesh) {
+        let gl = this.gl;
+        const vertPosBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertPosBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, mesh.geometry.attributes.position.array, gl.STATIC_DRAW);
+
+        const normalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, mesh.geometry.attributes.normal.array, gl.STATIC_DRAW);
+
+        const uvBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, mesh.geometry.attributes.uv.array, gl.STATIC_DRAW);
+
+        const indexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.geometry.index.array, gl.STATIC_DRAW);//uint32
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        let vao = mesh.vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+        gl.enableVertexAttribArray(0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertPosBuffer);
+        gl.vertexAttribPointer(0, mesh.geometry.attributes.position.itemSize, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(1);
+        gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+        gl.vertexAttribPointer(1, mesh.geometry.attributes.normal.itemSize, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(2);
+        gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+        gl.vertexAttribPointer(2, mesh.geometry.attributes.uv.itemSize, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bindVertexArray(null);
+
+        // addon
+        const imageBitmap = mesh.material.map.source.data;
+        const texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, imageBitmap.width, imageBitmap.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imageBitmap);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+
+        mesh.texture = texture;
+        return mesh
     }
 
 

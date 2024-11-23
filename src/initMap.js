@@ -14,7 +14,7 @@ export const initMap = () => {
         container: 'map',
         projection: 'mercator',
         antialias: true,
-        maxZoom: 18,
+        maxZoom: 20,
         center: mapInitialConfig.center,
         zoom: mapInitialConfig.zoom,
         pitch: mapInitialConfig.pitch,

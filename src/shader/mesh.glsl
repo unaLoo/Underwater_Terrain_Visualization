@@ -21,6 +21,7 @@ const float PI = 3.1415926535897932384626433832795;
 out float v_height;
 out float is_skirt;
 out float v_hillshade;
+out vec3 v_meshNormal;
 
 ////////////////////////////////////////////
 /////////// DEM 
@@ -31,23 +32,29 @@ vec4 tileUvToDemSample(vec2 uv, float dem_size, float dem_scale, vec2 dem_tl) {
     return vec4((pos - f + 0.5) / (dem_size + 2.0), f);
 }
 
-float elevation(vec2 apos) {
-
-    // float dd = 1.0 / (u_dem_size + 2.0);
-    // vec4 r = tileUvToDemSample(apos / 8192.0, u_dem_size, u_dem_scale, u_dem_tl);
-    // vec2 pos = r.xy;
-    // vec2 f = r.zw;
-
-    // float tl = texture(float_dem_texture, pos).r;
-    // float tr = texture(float_dem_texture, pos + vec2(dd, 0)).r;
-    // float bl = texture(float_dem_texture, pos + vec2(0, dd)).r;
-    // float br = texture(float_dem_texture, pos + vec2(dd, dd)).r;
-
-    // return mix(mix(tl, tr, f.x), mix(bl, br, f.x), f.y);
-
+float singleElevation(vec2 apos) {
     vec2 pos = (u_dem_size * (apos / 8192.0 * u_dem_scale + u_dem_tl) + 1.0) / (u_dem_size + 2.0);
     float m = texture(float_dem_texture, pos).r;
     return m;
+}
+
+float elevation(vec2 apos) {
+
+    float dd = 1.0 / (u_dem_size + 2.0);
+    vec4 r = tileUvToDemSample(apos / 8192.0, u_dem_size, u_dem_scale, u_dem_tl);
+    vec2 pos = r.xy;
+    vec2 f = r.zw;
+
+    float tl = texture(float_dem_texture, pos).r;
+    float tr = texture(float_dem_texture, pos + vec2(dd, 0)).r;
+    float bl = texture(float_dem_texture, pos + vec2(0, dd)).r;
+    float br = texture(float_dem_texture, pos + vec2(dd, dd)).r;
+
+    return mix(mix(tl, tr, f.x), mix(bl, br, f.x), f.y);
+
+    // vec2 pos = (u_dem_size * (apos / 8192.0 * u_dem_scale + u_dem_tl) + 1.0) / (u_dem_size + 2.0);
+    // float m = texture(float_dem_texture, pos).r;
+    // return m;
 }
 
 vec3 decomposeToPosAndSkirt(vec2 posWithComposedSkirt) {
@@ -76,6 +83,32 @@ float calcAzimuth(float azimuthDegree) {
     // 入射方向
     float validAzimuthDegree = mod(azimuthDegree + 360.0, 360.0);
     return deg2rad(360.0 - validAzimuthDegree + 90.0);
+}
+
+vec3 calcMeshNormal(vec2 apos) {
+
+    ///////////////
+    // a,  b,  c,
+    // d,  e,  f,
+    // g,  h,  i
+    //////////////
+    float b = elevation(apos + vec2(0.0, 1.0));
+    float d = elevation(apos + vec2(-1.0, 0.0));
+    float f = elevation(apos + vec2(1.0, 0.0));
+    float h = elevation(apos + vec2(0.0, -1.0));
+
+    float tr = f; // E
+    float bl = b; // N
+    float eS = h; // S
+    float eW = d; // W
+
+    vec3 dx = normalize(vec3(1.0, 0.0, tr - eW));
+    vec3 dy = normalize(vec3(0.0, 1.0, bl - eS));
+
+    vec3 normal = normalize(cross(dx, dy));
+
+    return normal;
+
 }
 
 vec2 calcSlopeAndAspect(vec2 apos) {
@@ -128,15 +161,19 @@ void main() {
     gl_Position = u_matrix * vec4(pos.xy, z, 1.0);
 
     /// HillShade ///
-    float zenithRad = calcZenith(u_altitudeDegree);
-    float azimuthRad = calcAzimuth(u_azimuthDegree);
-    vec2 slope_aspect = calcSlopeAndAspect(pos);
+    // float zenithRad = calcZenith(u_altitudeDegree);
+    // float azimuthRad = calcAzimuth(u_azimuthDegree);
+    // vec2 slope_aspect = calcSlopeAndAspect(pos);
+    // float hillShade = calcHillShade(zenithRad, azimuthRad, slope_aspect.x, slope_aspect.y);
+    float hillShade = 1.0;
 
-    float hillShade = calcHillShade(zenithRad, azimuthRad, slope_aspect.x, slope_aspect.y);
+    /// normal ///
+    vec3 meshNormal = calcMeshNormal(pos);
 
     v_height = height;
     is_skirt = skirt;
     v_hillshade = hillShade;
+    v_meshNormal = meshNormal;
 }
 #endif
 
@@ -146,6 +183,7 @@ precision highp float;
 in float v_height;
 in float is_skirt;
 in float v_hillshade;
+in vec3 v_meshNormal;
 
 out vec4 outColor;//OUTPUT RG32F
 
@@ -158,6 +196,9 @@ void main() {
     // }
     // float hs = 1.0;
     // outColor = vec4((v_height + 60.0) / 70.0, 0.4, 0.45, 1.0);
-    outColor = vec4(v_height, v_hillshade, 0.0, 0.0);
+    // outColor = vec4(v_height, v_hillshade, 0.0, 0.0);
+    // outColor = vec4(v_height, v_meshNormal);
+    outColor = vec4(v_height, v_meshNormal);
+
 }
 #endif

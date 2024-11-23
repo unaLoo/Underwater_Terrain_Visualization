@@ -36,8 +36,13 @@ uniform vec2 e;
 uniform float interval;
 uniform float withContour;
 uniform float withLighting;
+uniform vec3 LightPos;
+uniform float diffPower;
 
 out vec4 fragColor;
+
+const vec3 LightColor = vec3(1.0, 1.0, 1.0);
+const vec3 specularColor = vec3(1.0, 1.0, 1.0);
 
 vec2 decomposeHeight(float heightValue) {
     float skirt = float(heightValue >= SKIRT_HEIGHT_FLAG);
@@ -45,13 +50,15 @@ vec2 decomposeHeight(float heightValue) {
     return vec2(realHeight, skirt);
 }
 
-vec3 loadTerrainInfo(vec2 uv, vec2 offset) {
+vec4 loadTerrainInfo(vec2 uv, vec2 offset) {
 
     vec2 dim = vec2(textureSize(meshTexture, 0));
     // return texelFetch(meshTexture, ivec2(uv * dim + offset), 0);
     vec4 texel = texelFetch(meshTexture, ivec2(uv * dim + offset), 0);
     vec2 height_skirt = decomposeHeight(texel.r);
-    return vec3(height_skirt.x, texel.g, height_skirt.y);//realheight , hillshade, skirt
+    // return vec3(height_skirt.x, texel.g, height_skirt.y);//realheight , hillshade, skirt
+    // return vec4(height_skirt.x, texel.yzw);
+    return texel;
 }
 
 vec3 colorMapping(float elevation) {
@@ -79,11 +86,11 @@ void main() {
     }
 
     float factor = 1.0;
-    vec3 M = loadTerrainInfo(texcoords, vec2(0.0, 0.0));
-    vec3 N = loadTerrainInfo(texcoords, vec2(0.0, factor));
-    vec3 E = loadTerrainInfo(texcoords, vec2(factor, 0.0));
-    vec3 S = loadTerrainInfo(texcoords, vec2(0.0, -factor));
-    vec3 W = loadTerrainInfo(texcoords, vec2(-factor, 0.0));
+    vec4 M = loadTerrainInfo(texcoords, vec2(0.0, 0.0));
+    vec4 N = loadTerrainInfo(texcoords, vec2(0.0, factor));
+    vec4 E = loadTerrainInfo(texcoords, vec2(factor, 0.0));
+    vec4 S = loadTerrainInfo(texcoords, vec2(0.0, -factor));
+    vec4 W = loadTerrainInfo(texcoords, vec2(-factor, 0.0));
 
     int intervalM = withinInterval(M.r);
     int intervalN = withinInterval(N.r);
@@ -93,12 +100,21 @@ void main() {
 
     float diff = 1.0;
     if(withLighting == 1.0) {
-        float hillshade = M.g;
-        // hillshade = 1.0 - 1.0 / exp(5.0 * hillshade);
-        // hillshade = pow(hillshade, 5.0);
-        // hillshade = clamp(pow(hillshade, 3.0) - 0.1 , 0.0, 1.0);
-        // hillshade = sigmoid(hillshade);
-        diff = hillshade;
+        // float hillshade = M.g;
+        // // hillshade = 1.0 - 1.0 / exp(5.0 * hillshade);
+        // // hillshade = pow(hillshade, 5.0);
+        // // hillshade = clamp(pow(hillshade, 3.0) - 0.1 , 0.0, 1.0);
+        // // hillshade = sigmoid(hillshade);
+        // diff = hillshade;
+        vec3 lightPosition = vec3( -1.36, 0.77, 0.79);
+        vec3 lightDir = normalize(LightPos - vec3(0.0));
+        vec3 norm = M.gba;
+        diff = clamp(dot(norm, lightDir), 0.0, 1.0);
+        diff = pow(diff, diffPower);
+        // diff = pow(exp(diff) - 1.0, 1.0);
+        // diff = sigmoid(diff);
+        diff = smoothstep(0.0, 1.0, diff);
+        diff = clamp(diff, 0.0, 1.0);
     }
 
     vec3 intervalColor = colorMapping(M.r) * diff;

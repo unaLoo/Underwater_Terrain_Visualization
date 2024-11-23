@@ -69,6 +69,8 @@ export default class TerrainByProxyTile {
 
     specularPower = 25
 
+    maxzoom = 14
+
 
     constructor() {
 
@@ -95,11 +97,12 @@ export default class TerrainByProxyTile {
 
         this.altitudeDeg = 45.0
         this.azimuthDeg = 135.0
-        this.exaggeration = 30.0
+        this.exaggeration = 15.0
         this.withContour = 1.0
         this.withLighting = 1.0
-        this.mixAlpha = 0.5
+        this.mixAlpha = 0.38
         this.elevationRange = [-66.513999999999996, 4.3745000000000003]
+        this.diffPower = 1.1
 
         // for mipmap
         this.level = 0
@@ -132,8 +135,8 @@ export default class TerrainByProxyTile {
                 }
             }
         )
-        // map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': this.exaggeration });
-        map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': 1.0 });
+        map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': this.exaggeration });
+        // map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': 1.0 });
         map.addLayer(
             {
                 id: this.proxyLayerID,
@@ -169,13 +172,14 @@ export default class TerrainByProxyTile {
         this.gui.add(this, 'SamplerParams2', 0, 100, 0.1).onChange(value => { this.SamplerParams[2] = value })
         this.gui.add(this, 'SamplerParams3', -100, 0, 0.1).onChange(value => { this.SamplerParams[3] = value })
 
-        this.gui.add(this, 'LightPosX', -1, 1, 0.1).onChange(value => { this.LightPos[0] = value })
-        this.gui.add(this, 'LightPosY', -1, 1, 0.1).onChange(value => { this.LightPos[1] = value })
-        this.gui.add(this, 'LightPosZ', 0, 1, 0.1).onChange(value => { this.LightPos[2] = value })
+        this.gui.add(this, 'LightPosX', -2, 2, 0.01).onChange(value => { this.LightPos[0] = value })
+        this.gui.add(this, 'LightPosY', -2, 2, 0.01).onChange(value => { this.LightPos[1] = value })
+        this.gui.add(this, 'LightPosZ', 0, 1, 0.01).onChange(value => { this.LightPos[2] = value })
 
         this.gui.add(this, 'specularPower', 0, 1000, 1).onChange(() => { })
 
         this.gui.add(this, "mixAlpha", 0, 1, 0.01).onChange(() => { })
+        this.gui.add(this, "diffPower", 0, 3, 0.01).onChange(() => { })
 
     }
 
@@ -230,7 +234,7 @@ export default class TerrainByProxyTile {
         this.surfaceNormTexure = createTexture2D(gl, this.canvasWidth, this.canvasHeight, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE)
 
         /// mesh pass ///
-        this.meshTexture = createTexture2D(gl, this.canvasWidth, this.canvasHeight, gl.RG32F, gl.RG, gl.FLOAT)
+        this.meshTexture = createTexture2D(gl, this.canvasWidth, this.canvasHeight, gl.RGBA32F, gl.RGBA, gl.FLOAT)
         const depthTexture = this.meshDepthTexture = createTexture2D(gl, this.canvasWidth, this.canvasHeight, gl.DEPTH_COMPONENT32F, gl.DEPTH_COMPONENT, gl.FLOAT)
         this.emptyDEMTexture = createTexture2D(gl, 1, 1, gl.R32F, gl.RED, gl.FLOAT, new Float32Array([this.elevationRange[0]]))
 
@@ -582,6 +586,8 @@ export default class TerrainByProxyTile {
         gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'interval'), 1.0)
         gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'withContour'), this.withContour)
         gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'withLighting'), this.withLighting)
+        gl.uniform3fv(gl.getUniformLocation(this.contourProgram, 'LightPos'), this.LightPos)
+        gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'diffPower'), this.diffPower)
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
@@ -609,6 +615,11 @@ export default class TerrainByProxyTile {
         gl.uniform1i(gl.getUniformLocation(this.showProgram, 'showTexture2'), 1)
         gl.uniform1f(gl.getUniformLocation(this.showProgram, 'mixAlpha'), this.mixAlpha)
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+
+        // this.doDebug(this.maskTexture)
+        // this.doDebug(this.meshTexture)
+        // this.doDebug(this.surfaceCanvasTexture)
+        // this.doDebug(this.contourCanvasTexture)
 
 
         this.map.triggerRepaint()

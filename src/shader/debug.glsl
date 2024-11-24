@@ -62,7 +62,8 @@ void main() {
     vec2 screenUV = gl_FragCoord.xy / u_screenSize;
     // fragColor = vec4(screenUV, 0.0, 0.8);
     vec4 M = texture(debugTexture, screenUV);
-    fragColor = vec4(M.rgb, 0.5);
+    // fragColor = vec4(M.rgb, 0.5);
+    fragColor = M;
     // vec2 e = vec2(-66.5, 4.4);
     // fragColor = vec4(vec3((M.r - e.r) / length(e)), 0.4);
     // fragColor = vec4(0.5, 0.0, 0.0, 1.0);

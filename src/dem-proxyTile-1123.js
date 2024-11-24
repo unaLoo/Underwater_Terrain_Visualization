@@ -46,12 +46,31 @@ import maskCode from './shader/mask.glsl'
 import surfaceNormCode from './shader/surfaceNorm.glsl'
 import meshCode from './shader/mesh.glsl'
 import contourCode from './shader/contour.glsl'
-// import surfaceCode from './shader/waterSurface.glsl'
-import surfaceNoTileCode from './shader/waterSurfaceNoTile.glsl'
+import surfaceCode from './shader/waterSurface.glsl'
 import showCode from './shader/show.glsl'
 import modelCode from './shader/model.glsl'
 
 export default class TerrainByProxyTile {
+
+    shallowColor = [84, 157, 255]
+    // _shallowColor = `rgb(${this.shallowColor[0]}, ${this.shallowColor[1]}, ${this.shallowColor[2]})`
+    deepColor = [40, 116, 255]
+    // _deepColor = `rgb(${this.deepColor[0]}, ${this.deepColor[1]}, ${this.deepColor[2]})`
+
+    SamplerParams = [11.7, 19.3, 16.1, -66.6]
+    // SamplerParams0 = 0.9
+    // SamplerParams1 = 3.1
+    // SamplerParams2 = 5.2
+    // SamplerParams3 = -70
+
+    LightPos = [0.98, 0.46, 1.0]
+    // LightPosX = 0.8
+    // LightPosY = 0.5
+    // LightPosZ = 1.0
+
+    specularPower = 25
+
+    maxzoom = 14
 
     constructor() {
 
@@ -78,22 +97,21 @@ export default class TerrainByProxyTile {
 
         this.altitudeDeg = 45.0
         this.azimuthDeg = 135.0
-        this.exaggeration = 30.0
+        this.exaggeration = 15.0
         this.withContour = 1.0
         this.withLighting = 1.0
-        this.mixAlpha = 0.34
+        this.mixAlpha = 0.38
         this.elevationRange = [-66.513999999999996, 4.3745000000000003]
         this.diffPower = 1.1
-
-        this.shallowColor = [0, 0, 0]
-        this.deepColor = [165, 219, 247]
-        this.SamplerParams = [4.9, 17.9, 4.8, -88]
-        this.LightPos = [-0.03, 0.1, 0.86]
-        this.specularPower = 40
 
         // for mipmap
         this.level = 0
 
+        // this.modelConfig = {
+        //     modelScale: 0.000005,
+        //     modelPos: [120.53794466757358, 32.03551107103058],
+        //     // mercatorPos: MercatorCoordinate.fromLngLat(this.modelConfig.modelPos, 0)
+        // }
         this.modelConfigs = [
             {
                 modelScale: 0.000005,
@@ -176,8 +194,8 @@ export default class TerrainByProxyTile {
         // this.gui.add(this, 'exaggeration', 0, 30).step(1).onChange((value) => { this.map.setTerrain({ 'exaggeration': value }); this.map.triggerRepaint(); })
         // this.gui.add(this, 'withContour', 0, 1).step(1).onChange(() => { this.map.triggerRepaint() })
         // this.gui.add(this, 'withLighting', 0, 1).step(1).onChange(() => { this.map.triggerRepaint() })
-        // this.gui.add(this, 'altitudeDeg', 0, 90).step(1).onChange(() => { })
-        // this.gui.add(this, 'azimuthDeg', 0, 360).step(1).onChange(() => { })
+        this.gui.add(this, 'altitudeDeg', 0, 90).step(1).onChange(() => { })
+        this.gui.add(this, 'azimuthDeg', 0, 360).step(1).onChange(() => { })
         this.gui.add(this, 'exaggeration', 0, 30).step(1).onChange((value) => { this.map.setTerrain({ 'exaggeration': value }); })
         this.gui.add(this, 'withContour', 0, 1).step(1).onChange(() => { })
         this.gui.add(this, 'withLighting', 0, 1).step(1).onChange(() => { })
@@ -186,14 +204,14 @@ export default class TerrainByProxyTile {
         this.gui.addColor(this, '_shallowColor').name('深水').onChange(value => { this.shallowColor = parseRGB(value) })
         this.gui.addColor(this, '_deepColor').name('潜水').onChange(value => { this.deepColor = parseRGB(value) })
 
-        this.gui.add(this, 'SamplerParams0', 0, 30, 0.01).onChange(value => { this.SamplerParams[0] = value })
-        this.gui.add(this, 'SamplerParams1', -100, 100, 0.1).onChange(value => { this.SamplerParams[1] = value })
-        this.gui.add(this, 'SamplerParams2', 0, 30, 0.01).onChange(value => { this.SamplerParams[2] = value })
-        this.gui.add(this, 'SamplerParams3', -100, 100, 0.1).onChange(value => { this.SamplerParams[3] = value })
+        this.gui.add(this, 'SamplerParams0', 0, 100, 0.1).onChange(value => { this.SamplerParams[0] = value })
+        this.gui.add(this, 'SamplerParams1', 0, 100, 0.1).onChange(value => { this.SamplerParams[1] = value })
+        this.gui.add(this, 'SamplerParams2', 0, 100, 0.1).onChange(value => { this.SamplerParams[2] = value })
+        this.gui.add(this, 'SamplerParams3', -100, 0, 0.1).onChange(value => { this.SamplerParams[3] = value })
 
-        this.gui.add(this, 'LightPosX', -1, 1, 0.01).onChange(value => { this.LightPos[0] = value })
-        this.gui.add(this, 'LightPosY', -1, 1, 0.01).onChange(value => { this.LightPos[1] = value })
-        this.gui.add(this, 'LightPosZ', 0, 2, 0.01).onChange(value => { this.LightPos[2] = value })
+        this.gui.add(this, 'LightPosX', -2, 2, 0.01).onChange(value => { this.LightPos[0] = value })
+        this.gui.add(this, 'LightPosY', -2, 2, 0.01).onChange(value => { this.LightPos[1] = value })
+        this.gui.add(this, 'LightPosZ', 0, 1, 0.01).onChange(value => { this.LightPos[2] = value })
 
         this.gui.add(this, 'specularPower', 0, 1000, 1).onChange(() => { })
 
@@ -229,8 +247,7 @@ export default class TerrainByProxyTile {
         this.surfaceNormProgram = createShaderFromCode(gl, surfaceNormCode)
         this.meshProgram = createShaderFromCode(gl, meshCode)
         this.contourProgram = createShaderFromCode(gl, contourCode)
-        // this.surfaceProgram = createShaderFromCode(gl, surfaceCode)
-        this.surfaceNoTileProgram = createShaderFromCode(gl, surfaceNoTileCode)
+        this.surfaceProgram = createShaderFromCode(gl, surfaceCode)
         this.showProgram = createShaderFromCode(gl, showCode)
         this.modelProgram = createShaderFromCode(gl, modelCode)
 
@@ -362,6 +379,8 @@ export default class TerrainByProxyTile {
         const terrain = this.map.painter.terrain
         // terrain._exaggeration = 30.0
         const tr = this.map.transform
+        const tTiles = this.getTiles(this.proxySouceCache, terrain)
+        // console.log(tr.elevation, terrain)
 
         // 远处的瓦片闪烁 --- mapbox有个projctionMatrixCache
         // 下面这个导致闪烁，minElevation应该是当前视角下最低的瓦片的海拔高度
@@ -514,35 +533,73 @@ export default class TerrainByProxyTile {
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.surfaceFbo)
         gl.viewport(0.0, 0.0, this.canvasWidth, this.canvasHeight)
+
         gl.clearColor(0.0, 0.0, 0.0, 0.0)
         gl.clear(gl.COLOR_BUFFER_BIT)
         gl.disable(gl.BLEND)
 
-        gl.useProgram(this.surfaceNoTileProgram);
-        gl.bindVertexArray(this.surfaceNormVAO)
+        gl.useProgram(this.surfaceProgram);
 
-        gl.activeTexture(gl.TEXTURE0)
-        gl.bindTexture(gl.TEXTURE_2D, this.meshTexture)
         gl.activeTexture(gl.TEXTURE1)
         gl.bindTexture(gl.TEXTURE_2D, this.maskTexture)
         gl.activeTexture(gl.TEXTURE2)
         gl.bindTexture(gl.TEXTURE_2D, this.surfaceNormTexure)
 
-        gl.uniform1i(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_depethTexture'), 0)
-        gl.uniform1i(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_maskTexture'), 1)
-        gl.uniform1i(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_surfaceNormalTexture'), 2)
-        gl.uniform3fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_cameraPos'), cameraPos)
-        gl.uniform1f(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_time'), nowTime)
-        gl.uniform2fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_elevationRange'), this.elevationRange)
-        gl.uniform2fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_screenSize'), [this.canvasWidth, this.canvasHeight])
-        gl.uniform3fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'shallowColor'), this.shallowColor)
-        gl.uniform3fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'deepColor'), this.deepColor)
-        gl.uniform4fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'SamplerParams'), this.SamplerParams)
-        gl.uniform3fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'LightPos'), this.LightPos)
-        gl.uniform1f(gl.getUniformLocation(this.surfaceNoTileProgram, 'specularPower'), this.specularPower)
-        gl.uniformMatrix4fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_matrix'), false, matrix)
 
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+        gl.uniform1i(gl.getUniformLocation(this.surfaceProgram, 'u_maskTexture'), 1)
+        gl.uniform1i(gl.getUniformLocation(this.surfaceProgram, 'u_surfaceNormalTexture'), 2)
+        gl.uniform3fv(gl.getUniformLocation(this.surfaceProgram, 'u_cameraPos'), cameraPos)
+        gl.uniform1f(gl.getUniformLocation(this.surfaceProgram, 'u_time'), nowTime)
+        gl.uniform2fv(gl.getUniformLocation(this.surfaceProgram, 'u_elevationRange'), this.elevationRange)
+        gl.uniform2fv(gl.getUniformLocation(this.surfaceProgram, 'u_screenSize'), [this.canvasWidth, this.canvasHeight])
+
+        gl.uniform3fv(gl.getUniformLocation(this.surfaceProgram, 'shallowColor'), this.shallowColor)
+        gl.uniform3fv(gl.getUniformLocation(this.surfaceProgram, 'deepColor'), this.deepColor)
+        gl.uniform4fv(gl.getUniformLocation(this.surfaceProgram, 'SamplerParams'), this.SamplerParams)
+        gl.uniform3fv(gl.getUniformLocation(this.surfaceProgram, 'LightPos'), this.LightPos)
+        gl.uniform1f(gl.getUniformLocation(this.surfaceProgram, 'specularPower'), this.specularPower)
+
+        for (const coord of tileIDs) {
+
+            const tile = sourceCache.getTile(coord);
+            const mapboxProjMatrix = coord.projMatrix
+            const posMatrix = tr.calculatePosMatrix(tile.tileID.toUnwrapped(), tr.worldSize);
+
+            const uniformValues = {
+                'u_posMatrix': posMatrix,
+                'u_matrix': mapboxProjMatrix,
+                'u_exaggeration': this.exaggeration,
+                'u_dem_size': 514 - 2,
+            }
+            const demTile = this.demStore.get(coord.key)
+            if (!demTile) { console.log('no dem tile for', coord.toString()); continue }
+            const proxyId = tile.tileID.canonical;
+            const demId = demTile.tileID.canonical;
+            const demScaleBy = Math.pow(2, demId.z - proxyId.z);
+            uniformValues[`u_dem_tl`] = [proxyId.x * demScaleBy % 1, proxyId.y * demScaleBy % 1];
+            uniformValues[`u_dem_scale`] = demScaleBy;
+
+            // const drapedTexture = tile.texture
+            let demTexture = this.emptyDEMTexture
+            if (demTile.demTexture && demTile.demTexture.texture)
+                demTexture = demTile.demTexture.texture
+
+            gl.activeTexture(gl.TEXTURE0)
+            gl.bindTexture(gl.TEXTURE_2D, demTexture)
+            gl.uniform1i(gl.getUniformLocation(this.surfaceProgram, 'u_depethTexture'), 0)
+
+            gl.uniformMatrix4fv(gl.getUniformLocation(this.surfaceProgram, 'u_posMatrix'), false, uniformValues['u_posMatrix'])
+            gl.uniformMatrix4fv(gl.getUniformLocation(this.surfaceProgram, 'u_tileMatrix'), false, uniformValues['u_matrix'])
+            gl.uniform2fv(gl.getUniformLocation(this.surfaceProgram, 'u_dem_tl'), uniformValues['u_dem_tl']);
+            gl.uniform1f(gl.getUniformLocation(this.surfaceProgram, 'u_dem_size'), uniformValues['u_dem_size']);
+            gl.uniform1f(gl.getUniformLocation(this.surfaceProgram, 'u_dem_scale'), uniformValues['u_dem_scale']);
+
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+
+        }
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+
 
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -637,11 +694,37 @@ export default class TerrainByProxyTile {
                 gl.drawElements(gl.TRIANGLES, mesh.geometry.index.count, gl.UNSIGNED_INT, 0);
             })
         }
-
+ 
 
 
 
         this.map.triggerRepaint()
+    }
+
+    getTiles(sourceCache) {
+        let tiles = []
+        if (!!sourceCache) {
+            // let demTiles = this.map.painter.terrain.visibleDemTiles
+            // tiles = demTiles
+            let _tiles = sourceCache.getVisibleCoordinates()
+            sortByDistanceToCamera(_tiles, this.map.painter)
+            _tiles = _tiles.reverse()
+            // console.log('sortedTile', _tiles.map(t => t.canonical.toString()))
+            for (let i = 0; i < _tiles.length; i++) {
+                let id = _tiles[i].key
+                let tile = sourceCache.getTileByID(id)
+                const nowDemTile = this.map.painter.terrain.terrainTileForTile[id]
+                const prevDemTile = this.map.painter.terrain.prevTerrainTileForTile[id]
+
+                tiles.push({
+                    tile: tile,
+                    demTile: nowDemTile,
+                    prevDemTile: prevDemTile,
+                })
+            }
+        }
+        return tiles
+
     }
 
     getTiles2() {

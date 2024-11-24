@@ -86,7 +86,7 @@ export default class TerrainByProxyTile {
         this.diffPower = 1.1
 
         this.shallowColor = [0, 0, 0]
-        this.deepColor = [165, 219, 247]
+        this.deepColor = [100, 100, 100]
         this.SamplerParams = [4.9, 17.9, 4.8, -88]
         this.LightPos = [-0.03, 0.1, 0.86]
         this.specularPower = 40

@@ -135,7 +135,7 @@ void main() {
     float waterDepth = smoothstep(0.0, 1.0, normlizeHeight);
     vec3 waterColor = vec3(0.0);
     vec3 waterShallowColor = clamp(shallowColor * 0.5, 0.0, 255.0);
-    vec3 waterDeepColor = clamp(deepColor* 0.5, 0.0, 255.0);
+    vec3 waterDeepColor = clamp(deepColor * 0.5, 0.0, 255.0);
     waterColor = mix(waterDeepColor, waterShallowColor, waterDepth) / 255.0;
 
     /////////// noraml and Blinn-Phong ///////////
@@ -154,6 +154,11 @@ void main() {
     waterColor += specular;
 
     waterColor = clamp(waterColor, 0.0, 1.0);
+
+    if(waterColor.r > 0.5) {
+        // 大于0.5的颜色需要进行饱和处理
+        waterColor = mix(waterColor, vec3(0.5) + (waterColor - 0.5) * 0.5, 0.5);
+    }
 
     // float alpha = 0.2;
     float alpha = originalDepth > -1.5 ? 0.0 : 0.3;

@@ -64,7 +64,8 @@ export default class TerrainByProxyTile {
         this.proxySourceID = 'pxy-source'
 
         // this.maskURL = '/mask/CJ.geojson'
-        this.maskURL = '/mask/BH_BBOX.geojson'
+        // this.maskURL = '/mask/BH_BBOX.geojson'
+        this.maskURL = '/mask/BBOX.geojson'
 
         this.isReady = false
 
@@ -80,15 +81,8 @@ export default class TerrainByProxyTile {
         this.elevationRange = [-15.513999999999996, 4.3745000000000003]
         this.diffPower = 1.1
 
-        // 如果是深色矢量底图，建议配色如下
-        // this.shallowColor = [122, 52, 22]
-        // this.deepColor = [130, 130, 130]
-
-        // 如果是影像底图，建议配色如下
-        this.shallowColor = [50, 25, 0]
-        this.deepColor = [175, 175, 175]
-
-
+        this.shallowColor = [122, 52, 22]
+        this.deepColor = [130, 130, 130]
         this.SamplerParams = [13.6, -11.5, 1.56, -22.4]
         this.LightPos = [-0.03, 0.1, 0.86]
         this.specularPower = 40
@@ -184,8 +178,8 @@ export default class TerrainByProxyTile {
         this.gui.add(this, 'withLighting', 0, 1).step(1).onChange(() => { })
 
 
-        this.gui.addColor(this, '_shallowColor').name('deepColor').onChange(value => { this.shallowColor = parseRGB(value) })
-        this.gui.addColor(this, '_deepColor').name('shallowColor').onChange(value => { this.deepColor = parseRGB(value) })
+        this.gui.addColor(this, '_shallowColor').name('深水').onChange(value => { this.shallowColor = parseRGB(value) })
+        this.gui.addColor(this, '_deepColor').name('潜水').onChange(value => { this.deepColor = parseRGB(value) })
 
         this.gui.add(this, 'SamplerParams0', 0, 30, 0.01).onChange(value => { this.SamplerParams[0] = value })
         this.gui.add(this, 'SamplerParams1', -100, 100, 0.1).onChange(value => { this.SamplerParams[1] = value })

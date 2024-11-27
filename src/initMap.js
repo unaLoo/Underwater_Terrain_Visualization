@@ -7,10 +7,10 @@ mapboxgl.accessToken = 'pk.eyJ1IjoibnVqYWJlc2xvbyIsImEiOiJjbGp6Y3czZ2cwOXhvM3Ftd
 export const initMap = () => {
 
     const map = new mapboxgl.Map({
-        style: 'mapbox://styles/mapbox/dark-v11',
+        // style: 'mapbox://styles/mapbox/dark-v11',
         // style: EmptyStyle,
         // style: 'mapbox://styles/mapbox/light-v11',
-        // style: 'mapbox://styles/mapbox/satellite-streets-v12',
+        style: 'mapbox://styles/mapbox/satellite-streets-v12',
         container: 'map',
         projection: 'mercator',
         antialias: true,
@@ -39,7 +39,7 @@ const EmptyStyle = {
 }
 const mapInitialConfig = {
     // center: [120.53794466757358, 32.03061107103058],
-    center: [120.2803920596891106, 34.2630449664098393],
-    zoom: 12,
+    center: [120.2803920596891106, 34.3030449664098393],
+    zoom: 13,
     pitch: 0,
 }

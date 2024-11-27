@@ -149,7 +149,7 @@ void main() {
     float alpha = M.r < 9999.0 ? 1.0 : 0.0;
     float originalElevation = M.r;
     float normalizedElevation = (M.r - e.x) / (e.y - e.x) + 0.1;
-    // alpha = alpha * (1.0 - normalizedElevation);// 越高越透明
+    alpha = alpha * (1.0 - normalizedElevation);// 越高越透明
     fragColor = vec4(outColor, alpha);
 
     // fragColor = vec4(vec3(diff * 0.8), 1.0);

@@ -92,18 +92,21 @@ vec3 calcMeshNormal(vec2 apos) {
     // d,  e,  f,
     // g,  h,  i
     //////////////
-    float b = elevation(apos + vec2(0.0, 1.0));
-    float d = elevation(apos + vec2(-1.0, 0.0));
-    float f = elevation(apos + vec2(1.0, 0.0));
-    float h = elevation(apos + vec2(0.0, -1.0));
+    float factor = 1.0;
+    float b = elevation(apos + vec2(0.0, 1.0 * factor));
+    float d = elevation(apos + vec2(-1.0 * factor, 0.0));
+    float f = elevation(apos + vec2(1.0 * factor, 0.0));
+    float h = elevation(apos + vec2(0.0, -1.0 * factor));
 
     float tr = f; // E
     float bl = b; // N
     float eS = h; // S
     float eW = d; // W
 
-    vec3 dx = normalize(vec3(1.0, 0.0, tr - eW));
-    vec3 dy = normalize(vec3(0.0, 1.0, bl - eS));
+    vec3 dx = normalize(vec3(1.0, 0.0, (tr - eW) * u_exaggeration));
+    vec3 dy = normalize(vec3(0.0, 1.0, (bl - eS) * u_exaggeration));
+    // vec3 dx = normalize(vec3(1.0, 0.0, tr - eW));
+    // vec3 dy = normalize(vec3(0.0, 1.0, bl - eS));
 
     vec3 normal = normalize(cross(dx, dy));
 

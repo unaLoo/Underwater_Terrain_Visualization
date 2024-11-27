@@ -1,4 +1,4 @@
-import { mat4, vec4 } from "gl-matrix"
+import { mat4, vec4, vec3 } from "gl-matrix"
 import { createShader, createTexture2D, loadImage, createFrameBuffer, createRenderBuffer, enableAllExtensions, createVBO, createIBO, createCustomMipmapTexture2D, createFboPoolforMipmapTexture, calculateMipmapLevels, createShaderFromCode } from "./glLib"
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as dat from 'dat.gui'
@@ -63,13 +63,8 @@ export default class TerrainByProxyTile {
         this.proxyLayerID = 'pxy-layer'
         this.proxySourceID = 'pxy-source'
 
-        this.maskURL = '/mask/CJ.geojson'
-        this.maskBBox = [
-            120.3133719689749483, 31.7559901478936517,
-            121.0006965752893962, 31.7559901478936517,
-            120.3133719689749483, 32.0824775554828747,
-            121.0006965752893962, 32.0824775554828747,
-        ]
+        // this.maskURL = '/mask/CJ.geojson'
+        this.maskURL = '/mask/t.geojson'
 
         this.isReady = false
 
@@ -81,13 +76,13 @@ export default class TerrainByProxyTile {
         this.exaggeration = 30.0
         this.withContour = 1.0
         this.withLighting = 1.0
-        this.mixAlpha = 0.34
-        this.elevationRange = [-66.513999999999996, 4.3745000000000003]
+        this.mixAlpha = 0.5
+        this.elevationRange = [-15.513999999999996, 4.3745000000000003]
         this.diffPower = 1.1
 
-        this.shallowColor = [0, 0, 0]
-        this.deepColor = [100, 100, 100]
-        this.SamplerParams = [4.9, 17.9, 4.8, -88]
+        this.shallowColor = [122, 52, 22]
+        this.deepColor = [130, 130, 130]
+        this.SamplerParams = [13.6, -11.5, 1.56, -22.4]
         this.LightPos = [-0.03, 0.1, 0.86]
         this.specularPower = 40
 
@@ -99,7 +94,6 @@ export default class TerrainByProxyTile {
                 modelScale: 0.000005,
                 modelZRotate: 0.0,
                 modelPos: [120.33794466757358, 32.03551107103058],
-                // mercatorPos: MercatorCoordinate.fromLngLat(this.modelConfig.modelPos, 0)
             },
             {
                 modelScale: 0.000005,
@@ -141,8 +135,8 @@ export default class TerrainByProxyTile {
                 }
             }
         )
-        map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': this.exaggeration });
-        // map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': 1.0 });
+        // map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': this.exaggeration });
+        map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': 1.0 });
         map.addLayer(
             {
                 id: this.proxyLayerID,
@@ -178,7 +172,7 @@ export default class TerrainByProxyTile {
         // this.gui.add(this, 'withLighting', 0, 1).step(1).onChange(() => { this.map.triggerRepaint() })
         // this.gui.add(this, 'altitudeDeg', 0, 90).step(1).onChange(() => { })
         // this.gui.add(this, 'azimuthDeg', 0, 360).step(1).onChange(() => { })
-        this.gui.add(this, 'exaggeration', 0, 30).step(1).onChange((value) => { this.map.setTerrain({ 'exaggeration': value }); })
+        this.gui.add(this, 'exaggeration', 0, 100).step(1).onChange((value) => { this.map.setTerrain({ 'exaggeration': value }); })
         this.gui.add(this, 'withContour', 0, 1).step(1).onChange(() => { })
         this.gui.add(this, 'withLighting', 0, 1).step(1).onChange(() => { })
 
@@ -195,7 +189,7 @@ export default class TerrainByProxyTile {
         this.gui.add(this, 'LightPosY', -1, 1, 0.01).onChange(value => { this.LightPos[1] = value })
         this.gui.add(this, 'LightPosZ', 0, 2, 0.01).onChange(value => { this.LightPos[2] = value })
 
-        this.gui.add(this, 'specularPower', 0, 1000, 1).onChange(() => { })
+        this.gui.add(this, 'specularPower', 0, 50, 1).onChange(() => { })
 
         this.gui.add(this, "mixAlpha", 0, 1, 0.01).onChange(() => { })
         this.gui.add(this, "diffPower", 0, 3, 0.01).onChange(() => { })
@@ -573,6 +567,8 @@ export default class TerrainByProxyTile {
         gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'withLighting'), this.withLighting)
         gl.uniform3fv(gl.getUniformLocation(this.contourProgram, 'LightPos'), this.LightPos)
         gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'diffPower'), this.diffPower)
+        gl.uniform3fv(gl.getUniformLocation(this.contourProgram, 'shallowColor'), this.shallowColor)
+        gl.uniform3fv(gl.getUniformLocation(this.contourProgram, 'deepColor'), this.deepColor)
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
@@ -645,6 +641,7 @@ export default class TerrainByProxyTile {
     }
 
     getTiles2() {
+
         const terrain = this.map.painter.terrain
         const proxySourceCache = terrain.proxySourceCache
 
@@ -664,6 +661,7 @@ export default class TerrainByProxyTile {
                 this.demStore.put(tile.tileID.key, nextDemTile)
             }
         }
+        // console.log('accumulatedDrapes', accumulatedDrapes.length, accumulatedDrapes)
         return accumulatedDrapes
     }
 

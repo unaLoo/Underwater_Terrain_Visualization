@@ -14,8 +14,9 @@ export const initMap = () => {
         container: 'map',
         projection: 'mercator',
         antialias: true,
-        // maxZoom: 16,
-        // maxPitch: 80,
+        maxZoom: 16,
+        
+        // maxPitch: 70,
         center: mapInitialConfig.center,
         zoom: mapInitialConfig.zoom,
         pitch: mapInitialConfig.pitch,
@@ -37,7 +38,8 @@ const EmptyStyle = {
     ]
 }
 const mapInitialConfig = {
-    center: [120.53794466757358, 32.03061107103058],
-    zoom: 8,
+    // center: [120.53794466757358, 32.03061107103058],
+    center: [120.2803920596891106, 34.2630449664098393],
+    zoom: 12,
     pitch: 0,
 }

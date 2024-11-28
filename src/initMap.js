@@ -24,12 +24,13 @@ export const initMap = () => {
         map.showTileBoundaries = true;
         map.addLayer(new TerrainByProxyTile())
 
+
+        // query terrain elevation on click
         const popup = new mapboxgl.Popup({
             closeButton: false,
             closeOnClick: false,
             anchor: 'bottom',
         });
-
         map.on('click', e => {
             const coordinate = [e.lngLat.lng, e.lngLat.lat];
             const elevation = map.queryTerrainElevation(coordinate);

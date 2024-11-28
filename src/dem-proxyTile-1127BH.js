@@ -81,17 +81,18 @@ export default class TerrainByProxyTile {
         this.diffPower = 1.1
 
         // 如果是深色矢量底图，建议配色如下
-        // this.shallowColor = [122, 52, 22]
-        // this.deepColor = [130, 130, 130]
+        this.shallowColor = [122, 52, 22]
+        this.deepColor = [130, 130, 130]
 
         // 如果是影像底图，建议配色如下
-        this.shallowColor = [50, 25, 0]
-        this.deepColor = [175, 175, 175]
+        // this.shallowColor = [50, 25, 0]
+        // this.deepColor = [175, 175, 175]
 
 
         this.SamplerParams = [13.6, -11.5, 1.56, -22.4]
         this.LightPos = [-0.03, 0.1, 0.86]
         this.specularPower = 40
+        this.interval = 1.0
 
         // for mipmap
         this.level = 0
@@ -199,8 +200,9 @@ export default class TerrainByProxyTile {
         this.gui.add(this, 'specularPower', 0, 50, 1).onChange(() => { })
 
         this.gui.add(this, "mixAlpha", 0, 1, 0.01).onChange(() => { })
-        this.gui.add(this, "diffPower", 0, 3, 0.01).onChange(() => { })
+        // this.gui.add(this, "diffPower", 0, 3, 0.01).onChange(() => { })
 
+        this.gui.add(this, "interval", 0.1, 10, 0.1).onChange(() => { })
     }
 
 
@@ -498,8 +500,9 @@ export default class TerrainByProxyTile {
             gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_dem_scale'), uniformValues['u_dem_scale']);
             gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_exaggeration'), uniformValues['u_exaggeration'])
             gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_skirt_height'), uniformValues['u_skirt_height'])
+            gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_rand'), proxyId.x * proxyId.y * 2)
 
-
+            // gl.drawElements(gl.LINES, this.meshElements, gl.UNSIGNED_SHORT, 0);
             gl.drawElements(gl.TRIANGLES, this.meshElements, gl.UNSIGNED_SHORT, 0);
 
         }
@@ -569,7 +572,7 @@ export default class TerrainByProxyTile {
         gl.uniform1i(gl.getUniformLocation(this.contourProgram, 'paletteTexture'), 1)
         gl.uniform1i(gl.getUniformLocation(this.contourProgram, 'maskTexture'), 2)
         gl.uniform2fv(gl.getUniformLocation(this.contourProgram, 'e'), this.elevationRange)
-        gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'interval'), 1.0)
+        gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'interval'), this.interval)
         gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'withContour'), this.withContour)
         gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'withLighting'), this.withLighting)
         gl.uniform3fv(gl.getUniformLocation(this.contourProgram, 'LightPos'), this.LightPos)

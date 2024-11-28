@@ -63,8 +63,8 @@ export default class TerrainByProxyTile {
         this.proxyLayerID = 'pxy-layer'
         this.proxySourceID = 'pxy-source'
 
-        // this.maskURL = '/mask/CJ.geojson'
-        this.maskURL = '/mask/BH_BBOX.geojson'
+        this.maskURL = '/mask/CJ.geojson'
+        // this.maskURL = '/mask/BH_BBOX.geojson'
 
         this.isReady = false
 
@@ -77,16 +77,19 @@ export default class TerrainByProxyTile {
         this.withContour = 1.0
         this.withLighting = 1.0
         this.mixAlpha = 0.5
-        this.elevationRange = [-15.513999999999996, 4.3745000000000003]
+        // this.elevationRange = [-15.513999999999996, 4.3745000000000003] // BH
+        this.elevationRange = [-66.513999999999996, 4.3745000000000003] // CJ
+        this.interval = 1.0
+
         this.diffPower = 1.1
 
         // 如果是深色矢量底图，建议配色如下
-        // this.shallowColor = [122, 52, 22]
-        // this.deepColor = [130, 130, 130]
+        this.shallowColor = [122, 52, 22]
+        this.deepColor = [130, 130, 130]
 
         // 如果是影像底图，建议配色如下
-        this.shallowColor = [50, 25, 0]
-        this.deepColor = [175, 175, 175]
+        // this.shallowColor = [50, 25, 0]
+        // this.deepColor = [175, 175, 175]
 
 
         this.SamplerParams = [13.6, -11.5, 1.56, -22.4]
@@ -200,6 +203,8 @@ export default class TerrainByProxyTile {
 
         this.gui.add(this, "mixAlpha", 0, 1, 0.01).onChange(() => { })
         this.gui.add(this, "diffPower", 0, 3, 0.01).onChange(() => { })
+
+        this.gui.add(this, "interval", 0.1, 10, 0.1).onChange(() => { })
 
     }
 
@@ -452,7 +457,8 @@ export default class TerrainByProxyTile {
         gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_altitudeDegree'), this.altitudeDeg)
         gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_azimuthDegree'), this.azimuthDeg)
         for (const coord of tileIDs) {
-
+            let canonical = coord.canonical
+          
             const tile = sourceCache.getTile(coord);
 
             // const prevDemTile = terrain.prevTerrainTileForTile[coord.key];
@@ -476,7 +482,9 @@ export default class TerrainByProxyTile {
                 'u_dem_size': 514 - 2,
             }
             const demTile = this.demStore.get(coord.key)
-            if (!demTile) { console.log('no dem tile for', coord.toString()); continue }
+            if (!demTile) { 
+                // console.log('no dem tile for', coord.toString()); 
+            continue }
             const proxyId = tile.tileID.canonical;
             const demId = demTile.tileID.canonical;
             const demScaleBy = Math.pow(2, demId.z - proxyId.z);
@@ -498,9 +506,10 @@ export default class TerrainByProxyTile {
             gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_dem_scale'), uniformValues['u_dem_scale']);
             gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_exaggeration'), uniformValues['u_exaggeration'])
             gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_skirt_height'), uniformValues['u_skirt_height'])
+            gl.uniform3fv(gl.getUniformLocation(this.meshProgram, 'tileXYZ'), [canonical.x, canonical.y, canonical.z])
 
-
-            gl.drawElements(gl.TRIANGLES, this.meshElements, gl.UNSIGNED_SHORT, 0);
+            console.log([canonical.x, canonical.y, canonical.z])
+            gl.drawElements(gl.LINES, this.meshElements, gl.UNSIGNED_SHORT, 0);
 
         }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
@@ -569,7 +578,7 @@ export default class TerrainByProxyTile {
         gl.uniform1i(gl.getUniformLocation(this.contourProgram, 'paletteTexture'), 1)
         gl.uniform1i(gl.getUniformLocation(this.contourProgram, 'maskTexture'), 2)
         gl.uniform2fv(gl.getUniformLocation(this.contourProgram, 'e'), this.elevationRange)
-        gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'interval'), 1.0)
+        gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'interval'), this.interval)
         gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'withContour'), this.withContour)
         gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'withLighting'), this.withLighting)
         gl.uniform3fv(gl.getUniformLocation(this.contourProgram, 'LightPos'), this.LightPos)
@@ -587,25 +596,25 @@ export default class TerrainByProxyTile {
         // Pass 5: final mixing show pass 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-        gl.viewport(0.0, 0.0, gl.canvas.width, gl.canvas.height)
+        // gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        // gl.viewport(0.0, 0.0, gl.canvas.width, gl.canvas.height)
 
-        gl.enable(gl.BLEND)
-        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+        // gl.enable(gl.BLEND)
+        // gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
 
-        gl.useProgram(this.showProgram)
+        // gl.useProgram(this.showProgram)
 
-        gl.activeTexture(gl.TEXTURE0)
-        gl.bindTexture(gl.TEXTURE_2D, this.contourCanvasTexture)
-        gl.activeTexture(gl.TEXTURE1)
-        gl.bindTexture(gl.TEXTURE_2D, this.surfaceCanvasTexture)
-        gl.uniform1i(gl.getUniformLocation(this.showProgram, 'showTexture1'), 0)
-        gl.uniform1i(gl.getUniformLocation(this.showProgram, 'showTexture2'), 1)
-        gl.uniform1f(gl.getUniformLocation(this.showProgram, 'mixAlpha'), this.mixAlpha)
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+        // gl.activeTexture(gl.TEXTURE0)
+        // gl.bindTexture(gl.TEXTURE_2D, this.contourCanvasTexture)
+        // gl.activeTexture(gl.TEXTURE1)
+        // gl.bindTexture(gl.TEXTURE_2D, this.surfaceCanvasTexture)
+        // gl.uniform1i(gl.getUniformLocation(this.showProgram, 'showTexture1'), 0)
+        // gl.uniform1i(gl.getUniformLocation(this.showProgram, 'showTexture2'), 1)
+        // gl.uniform1f(gl.getUniformLocation(this.showProgram, 'mixAlpha'), this.mixAlpha)
+        // gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
 
         // this.doDebug(this.maskTexture)
-        // this.doDebug(this.meshTexture)
+        this.doDebug(this.meshTexture)
         // this.doDebug(this.surfaceCanvasTexture)
         // this.doDebug(this.contourCanvasTexture)
 
@@ -614,7 +623,7 @@ export default class TerrainByProxyTile {
 
         // Pass 3: Model Render Pass
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+        /*
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
         gl.enable(gl.DEPTH_TEST)
         gl.clear(gl.DEPTH_BUFFER_BIT)
@@ -641,7 +650,7 @@ export default class TerrainByProxyTile {
             })
         }
 
-
+*/
 
 
         this.map.triggerRepaint()

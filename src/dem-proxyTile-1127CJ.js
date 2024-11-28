@@ -63,9 +63,8 @@ export default class TerrainByProxyTile {
         this.proxyLayerID = 'pxy-layer'
         this.proxySourceID = 'pxy-source'
 
-        // this.maskURL = '/mask/CJ.geojson'
+        this.maskURL = '/mask/CJ.geojson'
         // this.maskURL = '/mask/BH_BBOX.geojson'
-        this.maskURL = '/mask/BBOX.geojson'
 
         this.isReady = false
 
@@ -78,11 +77,20 @@ export default class TerrainByProxyTile {
         this.withContour = 1.0
         this.withLighting = 1.0
         this.mixAlpha = 0.5
-        this.elevationRange = [-15.513999999999996, 4.3745000000000003]
+        // this.elevationRange = [-15.513999999999996, 4.3745000000000003] // BH
+        this.elevationRange = [-66.513999999999996, 4.3745000000000003] // CJ
+
         this.diffPower = 1.1
 
+        // 如果是深色矢量底图，建议配色如下
         this.shallowColor = [122, 52, 22]
         this.deepColor = [130, 130, 130]
+
+        // 如果是影像底图，建议配色如下
+        // this.shallowColor = [50, 25, 0]
+        // this.deepColor = [175, 175, 175]
+
+
         this.SamplerParams = [13.6, -11.5, 1.56, -22.4]
         this.LightPos = [-0.03, 0.1, 0.86]
         this.specularPower = 40
@@ -178,8 +186,8 @@ export default class TerrainByProxyTile {
         this.gui.add(this, 'withLighting', 0, 1).step(1).onChange(() => { })
 
 
-        this.gui.addColor(this, '_shallowColor').name('深水').onChange(value => { this.shallowColor = parseRGB(value) })
-        this.gui.addColor(this, '_deepColor').name('潜水').onChange(value => { this.deepColor = parseRGB(value) })
+        this.gui.addColor(this, '_shallowColor').name('deepColor').onChange(value => { this.shallowColor = parseRGB(value) })
+        this.gui.addColor(this, '_deepColor').name('shallowColor').onChange(value => { this.deepColor = parseRGB(value) })
 
         this.gui.add(this, 'SamplerParams0', 0, 30, 0.01).onChange(value => { this.SamplerParams[0] = value })
         this.gui.add(this, 'SamplerParams1', -100, 100, 0.1).onChange(value => { this.SamplerParams[1] = value })
@@ -581,25 +589,25 @@ export default class TerrainByProxyTile {
         // Pass 5: final mixing show pass 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-        gl.viewport(0.0, 0.0, gl.canvas.width, gl.canvas.height)
+        // gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        // gl.viewport(0.0, 0.0, gl.canvas.width, gl.canvas.height)
 
-        gl.enable(gl.BLEND)
-        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+        // gl.enable(gl.BLEND)
+        // gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
 
-        gl.useProgram(this.showProgram)
+        // gl.useProgram(this.showProgram)
 
-        gl.activeTexture(gl.TEXTURE0)
-        gl.bindTexture(gl.TEXTURE_2D, this.contourCanvasTexture)
-        gl.activeTexture(gl.TEXTURE1)
-        gl.bindTexture(gl.TEXTURE_2D, this.surfaceCanvasTexture)
-        gl.uniform1i(gl.getUniformLocation(this.showProgram, 'showTexture1'), 0)
-        gl.uniform1i(gl.getUniformLocation(this.showProgram, 'showTexture2'), 1)
-        gl.uniform1f(gl.getUniformLocation(this.showProgram, 'mixAlpha'), this.mixAlpha)
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+        // gl.activeTexture(gl.TEXTURE0)
+        // gl.bindTexture(gl.TEXTURE_2D, this.contourCanvasTexture)
+        // gl.activeTexture(gl.TEXTURE1)
+        // gl.bindTexture(gl.TEXTURE_2D, this.surfaceCanvasTexture)
+        // gl.uniform1i(gl.getUniformLocation(this.showProgram, 'showTexture1'), 0)
+        // gl.uniform1i(gl.getUniformLocation(this.showProgram, 'showTexture2'), 1)
+        // gl.uniform1f(gl.getUniformLocation(this.showProgram, 'mixAlpha'), this.mixAlpha)
+        // gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
 
         // this.doDebug(this.maskTexture)
-        // this.doDebug(this.meshTexture)
+        this.doDebug(this.meshTexture)
         // this.doDebug(this.surfaceCanvasTexture)
         // this.doDebug(this.contourCanvasTexture)
 
@@ -608,7 +616,7 @@ export default class TerrainByProxyTile {
 
         // Pass 3: Model Render Pass
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+        /*
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
         gl.enable(gl.DEPTH_TEST)
         gl.clear(gl.DEPTH_BUFFER_BIT)
@@ -635,7 +643,7 @@ export default class TerrainByProxyTile {
             })
         }
 
-
+*/
 
 
         this.map.triggerRepaint()
@@ -1027,7 +1035,6 @@ function parseRGB(rgbString) {
         throw new Error('Invalid RGB string');
     }
 }
-
 function getGeoBBOX(geojson) {
     const _bbox = bbox(geojson)
     // [

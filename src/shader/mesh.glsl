@@ -92,18 +92,21 @@ vec3 calcMeshNormal(vec2 apos) {
     // d,  e,  f,
     // g,  h,  i
     //////////////
-    float b = elevation(apos + vec2(0.0, 1.0));
-    float d = elevation(apos + vec2(-1.0, 0.0));
-    float f = elevation(apos + vec2(1.0, 0.0));
-    float h = elevation(apos + vec2(0.0, -1.0));
+    float factor = 1.0;
+    float b = elevation(apos + vec2(0.0, 1.0 * factor));
+    float d = elevation(apos + vec2(-1.0 * factor, 0.0));
+    float f = elevation(apos + vec2(1.0 * factor, 0.0));
+    float h = elevation(apos + vec2(0.0, -1.0 * factor));
 
     float tr = f; // E
     float bl = b; // N
     float eS = h; // S
     float eW = d; // W
 
-    vec3 dx = normalize(vec3(1.0, 0.0, tr - eW));
-    vec3 dy = normalize(vec3(0.0, 1.0, bl - eS));
+    vec3 dx = normalize(vec3(1.0, 0.0, (tr - eW) * u_exaggeration));
+    vec3 dy = normalize(vec3(0.0, 1.0, (bl - eS) * u_exaggeration));
+    // vec3 dx = normalize(vec3(1.0, 0.0, tr - eW));
+    // vec3 dy = normalize(vec3(0.0, 1.0, bl - eS));
 
     vec3 normal = normalize(cross(dx, dy));
 
@@ -157,7 +160,8 @@ void main() {
     float skirt = pos_skirt.z;
 
     float height = elevation(pos);
-    float z = height * u_exaggeration - skirt * u_skirt_height;
+    // float z = height * u_exaggeration - skirt * u_skirt_height;
+    float z = height * u_exaggeration;
     gl_Position = u_matrix * vec4(pos.xy, z, 1.0);
 
     /// HillShade ///
@@ -185,9 +189,34 @@ in float is_skirt;
 in float v_hillshade;
 in vec3 v_meshNormal;
 
+uniform float u_rand;
+
 out vec4 outColor;//OUTPUT RG32F
 
 const float SKIRT_HEIGHT_FLAG = 24575.0;
+
+vec3 colorMap(uint index) {
+    // 定义一个包含11个vec3类型颜色的数组作为调色板
+    vec3 palette[11] = vec3[](
+        vec3(158.0 / 255.0, 1.0 / 255.0, 66.0 / 255.0),
+        vec3(213.0 / 255.0, 62.0 / 255.0, 79.0 / 255.0),
+        vec3(244.0 / 255.0, 109.0 / 255.0, 67.0 / 255.0),
+        vec3(253.0 / 255.0, 174.0 / 255.0, 97.0 / 255.0),
+        vec3(254.0 / 255.0, 224.0 / 255.0, 139.0 / 255.0),
+        vec3(255.0 / 255.0, 255.0 / 255.0, 191.0 / 255.0),
+        vec3(230.0 / 255.0, 245.0 / 255.0, 152.0 / 255.0),
+        vec3(171.0 / 255.0, 221.0 / 255.0, 164.0 / 255.0),
+        vec3(102.0 / 255.0, 194.0 / 255.0, 165.0 / 255.0),
+        vec3(50.0 / 255.0, 136.0 / 255.0, 189.0 / 255.0),
+        vec3(94.0 / 255.0, 79.0 / 255.0, 162.0 / 255.0)
+    );
+
+    // 根据传入的索引返回对应的颜色，如果索引超出范围（这里简单返回黑色作为示例，实际可按需处理）
+    if (index < 11u) {
+        return palette[index];
+    }
+    return vec3(0.0, 0.0, 0.0);
+}
 
 void main() {
     // float height = v_height;
@@ -199,6 +228,8 @@ void main() {
     // outColor = vec4(v_height, v_hillshade, 0.0, 0.0);
     // outColor = vec4(v_height, v_meshNormal);
     outColor = vec4(v_height, v_meshNormal);
+
+    // outColor = vec4(colorMap(uint(u_rand)%11u), 1.0);
 
 }
 #endif

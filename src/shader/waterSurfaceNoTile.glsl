@@ -69,7 +69,7 @@ uniform vec2 u_elevationRange;
 uniform vec3 shallowColor;
 uniform vec3 deepColor;
 uniform vec4 SamplerParams;
-uniform vec3 LightPos;
+// uniform vec3 LightPos;
 uniform float specularPower;
 
 const vec3 NormalWS = vec3(0.0, 0.0, 1.0);
@@ -83,11 +83,11 @@ in vec4 v_positionCS;
 out vec4 FragColor;
 
 //////////// CONST ////////////
-// const vec3 shallowColor = vec3(0.0, 0.6, 0.9);
-// const vec3 deepColor = vec3(0.0, 0.13, 1.0);
+// const vec3 shallowColor = vec3(1.0);
+// const vec3 deepColor = vec3(0.0);
 // const float _FirstNormalSpeedInverse = 20.0;
 // const float _SecondNormalSpeedInverse = -15.0;
-// const vec3 LightPos = vec3(100.0, 20.0, 200.0);
+const vec3 LightPos = vec3(-0.66, 0.11, 0.99);
 const vec3 LightColor = vec3(1.0);
 const vec3 specularColor = vec3(1.0);
 // const float specularPower = 512.0;
@@ -98,9 +98,10 @@ const vec3 specularColor = vec3(1.0);
 float samplerHeight(vec2 uv) {
     vec2 pos = uv;
     float m = texture(u_depethTexture, pos).r;
-    float normlizeHeight = (m - u_elevationRange.x) / (u_elevationRange.y - u_elevationRange.x);
+    // float normlizeHeight = (m - u_elevationRange.x) / (u_elevationRange.y - u_elevationRange.x);
 
-    return smoothstep(0.0, 1.0, normlizeHeight);
+    // return smoothstep(0.0, 1.0, normlizeHeight);
+    return m;
 }
 
 ////////////////////////////////////////////
@@ -129,9 +130,13 @@ void main() {
     /////////// waterDepth ///////////
     vec3 viewVector = v_positionWS - u_cameraPos.xyz;
 
-    float waterDepth = samplerHeight(screenUV);
+    float originalDepth = samplerHeight(screenUV);
+    float normlizeHeight = (originalDepth - u_elevationRange.x) / (u_elevationRange.y - u_elevationRange.x);
+    float waterDepth = smoothstep(0.0, 1.0, normlizeHeight);
     vec3 waterColor = vec3(0.0);
-    waterColor = mix(shallowColor, deepColor, waterDepth) / 255.0;
+    vec3 waterShallowColor = clamp(shallowColor * 0.5, 0.0, 255.0);
+    vec3 waterDeepColor = clamp(deepColor * 0.5, 0.0, 255.0);
+    waterColor = mix(waterDeepColor, waterShallowColor, waterDepth) / 255.0;
 
     /////////// noraml and Blinn-Phong ///////////
     // vec3 normalWS = getNormalFromMap(v_uv);
@@ -140,18 +145,24 @@ void main() {
     vec3 lightDir = normalize(LightPos - vec3(0.0));
     vec3 viewDir = normalize(-1.0 * viewVector);
 
-    // vec3 halfwayDir = normalize(lightDir + viewDir);
-    vec3 halfwayDir = normalize(lightDir);
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+    // vec3 halfwayDir = normalize(lightDir);
     // float NdotH = clamp(dot(normalWS, halfwayDir), 0.0, 1.0);
     float NdotH = abs(dot(normalWS, halfwayDir));
     vec3 specular = LightColor * specularColor * pow(NdotH, specularPower);
 
     waterColor += specular;
 
-    float alpha = 0.2;
-    FragColor = vec4(waterColor, alpha);
+    waterColor = clamp(waterColor, 0.0, 1.0);
 
-    // FragColor = vec4(waterDepth, 0.5 ,0.5, 1.0);
+    if(waterColor.r > 0.5) {
+        // 大于0.5的颜色需要进行饱和处理
+        waterColor = mix(waterColor, vec3(0.5) + (waterColor - 0.5) * 0.5, 0.5);
+    }
+
+    // float alpha = 0.2;
+    float alpha = originalDepth > -1.5 ? 0.0 : 0.3;
+    FragColor = vec4(waterColor, alpha);
 
     // FragColor = vec4(1.0,0.0,0.0,1.0);
 }

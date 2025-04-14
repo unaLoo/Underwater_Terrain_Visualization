@@ -97,7 +97,7 @@ void main() {
         return;
     }
 
-    float factor = 1.0;
+    float factor = 2.0;
     vec4 M = loadTerrainInfo(texcoords, vec2(0.0, 0.0));
     vec4 N = loadTerrainInfo(texcoords, vec2(0.0, factor));
     vec4 E = loadTerrainInfo(texcoords, vec2(factor, 0.0));

@@ -55,6 +55,8 @@ export default class TerrainByProxyTile {
 
     constructor() {
 
+        this.db = false
+
         this.id = 'terrainLayer'
         this.type = 'custom'
         this.renderingMode = '3d'
@@ -77,7 +79,7 @@ export default class TerrainByProxyTile {
         this.withContour = 1.0
         this.withLighting = 1.0
         this.mixAlpha = 0.5
-        this.elevationRange = [-15.513999999999996, 4.3745000000000003]
+        this.elevationRange = [-15.514, 4.3745]
         this.diffPower = 1.1
 
         // 如果是深色矢量底图，建议配色如下
@@ -92,7 +94,7 @@ export default class TerrainByProxyTile {
         this.SamplerParams = [13.6, -11.5, 1.56, -22.4]
         this.LightPos = [-0.03, 0.1, 0.86]
         this.specularPower = 40
-        this.interval = 1.0
+        this.interval = 0.1
 
         // for mipmap
         this.level = 0
@@ -114,6 +116,12 @@ export default class TerrainByProxyTile {
                 modelPos: [120.53794466757358, 32.03551107103058],
             },
         ]
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'd') {
+                this.db = !this.db
+            }
+        })
 
     }
 
@@ -227,7 +235,7 @@ export default class TerrainByProxyTile {
         this.surfaceNormTexure = createTexture2D(gl, this.canvasWidth, this.canvasHeight, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE)
 
         /// mesh pass ///
-        this.meshTexture = createTexture2D(gl, this.canvasWidth, this.canvasHeight, gl.RGBA32F, gl.RGBA, gl.FLOAT)
+        this.meshTexture = createTexture2D(gl, this.canvasWidth, this.canvasHeight, gl.RGBA16F, gl.RGBA, gl.FLOAT)
         const depthTexture = this.meshDepthTexture = createTexture2D(gl, this.canvasWidth, this.canvasHeight, gl.DEPTH_COMPONENT32F, gl.DEPTH_COMPONENT, gl.FLOAT)
         this.emptyDEMTexture = createTexture2D(gl, 1, 1, gl.R32F, gl.RED, gl.FLOAT, new Float32Array([this.elevationRange[0]]))
 
@@ -328,15 +336,17 @@ export default class TerrainByProxyTile {
         // 远处的瓦片闪烁 --- mapbox有个projctionMatrixCache
         // 下面这个导致闪烁，minElevation应该是当前视角下最低的瓦片的海拔高度
         // const projMatrix = updateProjMatrix.call(this.map.transform, this.elevationRange[0] * this.exaggeration)
-        const minElevationInTils = getMinElevationBelowMSL(terrain, this.exaggeration)
-        const projMatrix = updateProjMatrix.call(this.map.transform, minElevationInTils)
+        // const minElevationInTils = getMinElevationBelowMSL(terrain, this.exaggeration)
+        // const projMatrix = updateProjMatrix.call(this.map.transform, minElevationInTils)
+        // const projMatrix = updateProjMatrix.call(this.map.transform, 0.0)
+        const projMatrix = tr.projMatrix
 
 
         const tileIDs = this.getTiltes()
         const skirt = skirtHeight(tr.zoom, this.exaggeration, terrain.sourceCache._source.tileSize);
         const sourceCache = terrain.proxySourceCache
         const nowTime = performance.now()
-        const cameraPos = this.map.transform._camera.position
+        const cameraPos = tr._camera.position
 
 
 
@@ -422,16 +432,17 @@ export default class TerrainByProxyTile {
             //     console.log('dem tile changing')
             // }
 
-            const proxyTileProjMatrix = coord.projMatrix
+            // const proxyTileProjMatrix = coord.projMatrix
             // const tileMatrix = tr.calculateProjMatrix(tile.tileID.toUnwrapped()) // 和上面一样的效果
 
-            const posMatrix = tr.calculatePosMatrix(tile.tileID.toUnwrapped(), tr.worldSize);
-            const tileMatrix = mat4.multiply(mat4.create(), projMatrix, posMatrix);
-            tr._projMatrixCache[tile.tileID.toUnwrapped().key] = new Float32Array(tileMatrix);
+            // const posMatrix = tr.calculatePosMatrix(tile.tileID.toUnwrapped(), tr.worldSize);
+            // const tileMatrix = mat4.multiply(mat4.create(), projMatrix, posMatrix);
+            // tr._projMatrixCache[tile.tileID.toUnwrapped().key] = new Float32Array(tileMatrix);
 
 
             const uniformValues = {
-                'u_matrix': tileMatrix,
+                // 'u_matrix': tileMatrix,
+                'u_matrix': coord.projMatrix,
                 'u_skirt_height': skirt,
                 'u_exaggeration': this.exaggeration,
                 'u_dem_size': 514 - 2,
@@ -467,6 +478,9 @@ export default class TerrainByProxyTile {
         }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 
+        if (this.db) {
+            this.doDebug(this.meshTexture)
+        }
 
 
 
@@ -565,7 +579,10 @@ export default class TerrainByProxyTile {
         gl.uniform1i(gl.getUniformLocation(this.showProgram, 'showTexture2'), 1)
         // gl.uniform1f(gl.getUniformLocation(this.showProgram, 'mixAlpha'), this.mixAlpha)
         gl.uniform1f(gl.getUniformLocation(this.showProgram, 'mixAlpha'), 0.0)
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+
+        if (!this.db) {
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+        }
 
         // this.doDebug(this.maskTexture)
         // this.doDebug(this.meshTexture)

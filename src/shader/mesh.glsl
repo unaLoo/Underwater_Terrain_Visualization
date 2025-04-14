@@ -1,5 +1,8 @@
 
 #ifdef VERTEX_SHADER
+precision highp int;
+precision highp float;
+precision highp usampler2D;
 
 layout(location = 0) in vec2 a_position;
 
@@ -160,8 +163,9 @@ void main() {
     float skirt = pos_skirt.z;
 
     float height = elevation(pos);
+    // float height = singleElevation(pos);
     // float z = height * u_exaggeration - skirt * u_skirt_height;
-    float z = height * u_exaggeration;
+    float z = -height * u_exaggeration;
     gl_Position = u_matrix * vec4(pos.xy, z, 1.0);
 
     /// HillShade ///
@@ -182,7 +186,9 @@ void main() {
 #endif
 
 #ifdef FRAGMENT_SHADER
+precision highp int;
 precision highp float;
+precision highp usampler2D;
 
 in float v_height;
 in float is_skirt;

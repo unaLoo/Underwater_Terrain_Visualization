@@ -63,9 +63,8 @@ void main() {
     // fragColor = vec4(screenUV, 0.0, 0.8);
     vec4 M = texture(debugTexture, screenUV);
     // fragColor = vec4(M.rgb, 0.5);
-    fragColor = M;
-    // vec2 e = vec2(-66.5, 4.4);
-    // fragColor = vec4(vec3((M.r - e.r) / length(e)), 0.4);
+    vec2 e = vec2(-15.513999999999996, 4.3745000000000003);
+    fragColor = vec4(vec3((M.r - e.r) / length(e)), 1.0);
     // fragColor = vec4(0.5, 0.0, 0.0, 1.0);
     // fragColor = vec4(M.r,0.0,0.0,1.0);
     // float alpha = M.r == 9999.0? 0.0 : 0.5;

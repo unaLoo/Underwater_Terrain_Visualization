@@ -81,6 +81,7 @@ export default class TerrainByProxyTile {
         this.mixAlpha = 0.5
         this.elevationRange = [-15.514, 4.3745]
         this.diffPower = 1.1
+        this.ep = 1000.0
 
         // 如果是深色矢量底图，建议配色如下
         this.shallowColor = [122, 52, 22]
@@ -94,7 +95,7 @@ export default class TerrainByProxyTile {
         this.SamplerParams = [13.6, -11.5, 1.56, -22.4]
         this.LightPos = [-0.03, 0.1, 0.86]
         this.specularPower = 40
-        this.interval = 0.1
+        this.interval = 0.2
 
         // for mipmap
         this.level = 0
@@ -150,8 +151,6 @@ export default class TerrainByProxyTile {
         this.LightPosX = this.LightPos[0]
         this.LightPosY = this.LightPos[1]
         this.LightPosZ = this.LightPos[2]
-
-
         this.gui = new dat.GUI()
         // this.gui.add(this, 'altitudeDeg', 0, 90).step(1).onChange(() => { this.map.triggerRepaint() })
         // this.gui.add(this, 'azimuthDeg', 0, 360).step(1).onChange(() => { this.map.triggerRepaint() })
@@ -183,6 +182,7 @@ export default class TerrainByProxyTile {
         // this.gui.add(this, "diffPower", 0, 3, 0.01).onChange(() => { })
 
         this.gui.add(this, "interval", 0.1, 10, 0.1).onChange(() => { })
+        this.gui.add(this, "ep", 0.0, 1000.0, 1.0).onChange(() => { })
     }
 
 
@@ -196,7 +196,7 @@ export default class TerrainByProxyTile {
         this.gl = gl
         enableAllExtensions(gl)
         this.demStore = new LRUCache(100)
-        // this.initGUI()
+        this.initGUI()
 
         this.maskgeojson = (await axios.get(this.maskURL)).data
 
@@ -328,7 +328,7 @@ export default class TerrainByProxyTile {
     render(gl, matrix) {
         if (!this.isReady) { this.map.triggerRepaint(); return }
         this.frame++;
-
+        console.log(gl.canvas.width, gl.canvas.height)
         const terrain = this.map.painter.terrain
         // terrain._exaggeration = 30.0
         const tr = this.map.transform
@@ -336,10 +336,10 @@ export default class TerrainByProxyTile {
         // 远处的瓦片闪烁 --- mapbox有个projctionMatrixCache
         // 下面这个导致闪烁，minElevation应该是当前视角下最低的瓦片的海拔高度
         // const projMatrix = updateProjMatrix.call(this.map.transform, this.elevationRange[0] * this.exaggeration)
-        // const minElevationInTils = getMinElevationBelowMSL(terrain, this.exaggeration)
-        // const projMatrix = updateProjMatrix.call(this.map.transform, minElevationInTils)
+        const minElevationInTils = getMinElevationBelowMSL(terrain, this.exaggeration)
+        const projMatrix = updateProjMatrix.call(this.map.transform, minElevationInTils)
         // const projMatrix = updateProjMatrix.call(this.map.transform, 0.0)
-        const projMatrix = tr.projMatrix
+        // const projMatrix = tr.projMatrix
 
 
         const tileIDs = this.getTiltes()
@@ -422,6 +422,7 @@ export default class TerrainByProxyTile {
         gl.bindVertexArray(this.meshVao);
         gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_altitudeDegree'), this.altitudeDeg)
         gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_azimuthDegree'), this.azimuthDeg)
+        gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'ep'), this.ep)
         for (const coord of tileIDs) {
 
             const tile = sourceCache.getTile(coord);
@@ -435,14 +436,14 @@ export default class TerrainByProxyTile {
             // const proxyTileProjMatrix = coord.projMatrix
             // const tileMatrix = tr.calculateProjMatrix(tile.tileID.toUnwrapped()) // 和上面一样的效果
 
-            // const posMatrix = tr.calculatePosMatrix(tile.tileID.toUnwrapped(), tr.worldSize);
-            // const tileMatrix = mat4.multiply(mat4.create(), projMatrix, posMatrix);
+            const posMatrix = tr.calculatePosMatrix(tile.tileID.toUnwrapped(), tr.worldSize);
+            const tileMatrix = mat4.multiply(mat4.create(), projMatrix, posMatrix);
             // tr._projMatrixCache[tile.tileID.toUnwrapped().key] = new Float32Array(tileMatrix);
 
 
             const uniformValues = {
-                // 'u_matrix': tileMatrix,
-                'u_matrix': coord.projMatrix,
+                'u_matrix': tileMatrix,
+                // 'u_matrix': coord.projMatrix,
                 'u_skirt_height': skirt,
                 'u_exaggeration': this.exaggeration,
                 'u_dem_size': 514 - 2,
@@ -482,6 +483,7 @@ export default class TerrainByProxyTile {
             this.doDebug(this.meshTexture)
         }
 
+        /// Terrain mesh 平滑 pass
 
 
 

@@ -46,7 +46,6 @@ import maskCode from './shader/mask.glsl'
 import surfaceNormCode from './shader/surfaceNorm.glsl'
 import meshCode from './shader/mesh.glsl'
 import contourCode from './shader/contour.glsl'
-// import surfaceCode from './shader/waterSurface.glsl'
 import surfaceNoTileCode from './shader/waterSurfaceNoTile.glsl'
 import showCode from './shader/show.glsl'
 import modelCode from './shader/model.glsl'
@@ -93,9 +92,7 @@ export default class TerrainByProxyTile {
         this.LightPos = [-0.03, 0.1, 0.86]
         this.specularPower = 40
         this.interval = 1.0
-
-        // for mipmap
-        this.level = 0
+        this.ep = 100
 
         this.modelConfigs = [
             {
@@ -122,7 +119,7 @@ export default class TerrainByProxyTile {
             'type': 'raster-dem',
             // 'url': 'mapbox://mapbox.terrain-rgb',
             'tiles': [
-                '/TTB/v0/terrain-rgb/{z}/{x}/{y}.png'
+                '/TTB/BH/{z}/{x}/{y}.png'
             ],
             'tileSize': 512,
             'maxzoom': 14
@@ -203,6 +200,7 @@ export default class TerrainByProxyTile {
         // this.gui.add(this, "diffPower", 0, 3, 0.01).onChange(() => { })
 
         this.gui.add(this, "interval", 0.1, 10, 0.1).onChange(() => { })
+        this.gui.add(this, "ep", 0.0, 1000.0, 1.0).onChange(() => { })
     }
 
 
@@ -453,6 +451,7 @@ export default class TerrainByProxyTile {
         gl.bindVertexArray(this.meshVao);
         gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_altitudeDegree'), this.altitudeDeg)
         gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_azimuthDegree'), this.azimuthDeg)
+        gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'ep'), this.ep)
         for (const coord of tileIDs) {
 
             const tile = sourceCache.getTile(coord);

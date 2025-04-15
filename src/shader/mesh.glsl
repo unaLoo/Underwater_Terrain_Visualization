@@ -1,4 +1,3 @@
-
 #ifdef VERTEX_SHADER
 precision highp int;
 precision highp float;
@@ -7,6 +6,7 @@ precision highp usampler2D;
 layout(location = 0) in vec2 a_position;
 
 uniform mat4 u_matrix;
+uniform float ep;
 uniform sampler2D float_dem_texture;
 uniform vec2 u_dem_tl;
 uniform float u_dem_size;
@@ -37,7 +37,7 @@ vec4 tileUvToDemSample(vec2 uv, float dem_size, float dem_scale, vec2 dem_tl) {
 
 float singleElevation(vec2 apos) {
     vec2 pos = (u_dem_size * (apos / 8192.0 * u_dem_scale + u_dem_tl) + 1.0) / (u_dem_size + 2.0);
-    float m = texture(float_dem_texture, pos).r;
+    float m = texture(float_dem_texture, pos).r + (pos.x * 0.0000001  + pos.y * 0.0000001) * ep ; // !!!! 
     return m;
 }
 
@@ -49,12 +49,16 @@ float elevation(vec2 apos) {
     vec2 f = r.zw;
 
     float tl = texture(float_dem_texture, pos).r;
+    // return tl;
+
     float tr = texture(float_dem_texture, pos + vec2(dd, 0)).r;
     float bl = texture(float_dem_texture, pos + vec2(0, dd)).r;
     float br = texture(float_dem_texture, pos + vec2(dd, dd)).r;
 
-    return mix(mix(tl, tr, f.x), mix(bl, br, f.x), f.y);
-
+    float f_h =mix(mix(tl, tr, f.x), mix(bl, br, f.x), f.y);
+    float factor = 10000.0;
+    return float(int(f_h * factor)) / factor;
+    // return f_h;
     // vec2 pos = (u_dem_size * (apos / 8192.0 * u_dem_scale + u_dem_tl) + 1.0) / (u_dem_size + 2.0);
     // float m = texture(float_dem_texture, pos).r;
     // return m;
@@ -162,10 +166,10 @@ void main() {
     vec2 pos = pos_skirt.xy;
     float skirt = pos_skirt.z;
 
-    float height = elevation(pos);
-    // float height = singleElevation(pos);
+    // float height = elevation(pos);
+    float height = singleElevation(pos);
     // float z = height * u_exaggeration - skirt * u_skirt_height;
-    float z = -height * u_exaggeration;
+    float z = height * u_exaggeration;
     gl_Position = u_matrix * vec4(pos.xy, z, 1.0);
 
     /// HillShade ///

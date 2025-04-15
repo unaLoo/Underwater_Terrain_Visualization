@@ -1,7 +1,7 @@
 import mapboxgl from "mapbox-gl"
 import "mapbox-gl/dist/mapbox-gl.css";
-// import TerrainByProxyTile from './dem-proxyTile'
-import TerrainByProxyTile from "./debug";
+import TerrainByProxyTile from './dem-proxyTile'
+// import TerrainByProxyTile from "./debug";
 
 mapboxgl.accessToken = 'pk.eyJ1IjoieWNzb2t1IiwiYSI6ImNrenozdWdodDAza3EzY3BtdHh4cm5pangifQ.ZigfygDi2bK4HXY1pWh-wg'
 // initialize map

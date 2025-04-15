@@ -79,8 +79,13 @@ vec3 colorMapping(float elevation) {
 
 }
 
-int withinInterval(float elevation) {
+float epsilon(float x) {
+    return 0.00001 * x;
+}
 
+int withinInterval(float elevation) {
+    // float f_interval = elevation * ep; 
+    // return int(f_interval / (interval * ep));
     return int(elevation / interval);
 }
 
@@ -97,7 +102,7 @@ void main() {
         return;
     }
 
-    float factor = 2.0;
+    float factor = 1.0;
     vec4 M = loadTerrainInfo(texcoords, vec2(0.0, 0.0));
     vec4 N = loadTerrainInfo(texcoords, vec2(0.0, factor));
     vec4 E = loadTerrainInfo(texcoords, vec2(factor, 0.0));
@@ -139,7 +144,8 @@ void main() {
             outColor = intervalColor * 0.8;
             if(intervalM == 0) {
                 outColor = vec3(0.0);
-            } else if(intervalM % 6 == 0) {
+            }
+            else if(intervalM % 6 == 0) {
                 outColor = vec3(0.65, 0.04, 0.04);
             } else if(intervalM % 10 == 0) {
                 outColor = vec3(0.03, 0.29, 0.46);

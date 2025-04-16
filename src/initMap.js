@@ -25,7 +25,6 @@ export const initMap = () => {
 
         getMapViewInfo(map)
 
-
         map.showTileBoundaries = true;
         map.addLayer(new TerrainByProxyTile())
 

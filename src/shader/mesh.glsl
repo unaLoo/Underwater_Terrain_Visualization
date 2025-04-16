@@ -7,6 +7,7 @@ layout(location = 0) in vec2 a_position;
 
 uniform mat4 u_matrix;
 uniform float ep;
+uniform float use_skirt;
 uniform sampler2D float_dem_texture;
 uniform vec2 u_dem_tl;
 uniform float u_dem_size;
@@ -180,10 +181,9 @@ void main() {
 
     // float height = elevation(pos);
     float height = singleElevation(pos);
-    float z = height * u_exaggeration - skirt * u_skirt_height;
-    // float z = height * u_exaggeration;
+    // float z = height * u_exaggeration - skirt * u_skirt_height;
+    float z = height * u_exaggeration - skirt * u_skirt_height * use_skirt;
 
-    // float z = height * u_exaggeration;
     gl_Position = u_matrix * vec4(pos.xy, z, 1.0);
 
     /// HillShade ///

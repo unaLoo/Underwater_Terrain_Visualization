@@ -80,6 +80,7 @@ export default class TerrainByProxyTile {
         this.mixAlpha = 0.0
         this.elevationRange = [-15.513999999999996, 4.3745000000000003]
         this.diffPower = 1.1
+        this.use_skirt = 1.0
 
         // 如果是深色矢量底图，建议配色如下
         this.shallowColor = [122, 52, 22]
@@ -118,22 +119,34 @@ export default class TerrainByProxyTile {
         window.addEventListener('keydown', (event) => {
             this.debugKey = event.key
             this.map.triggerRepaint()
+
+            if (event.key === '2') {
+                this.map.setTerrain({ 'source': 'underwater-dem-2', 'exaggeration': 1.0 })
+            }
+            if (event.key === '1') {
+                this.map.setTerrain({ 'source': 'underwater-dem-1', 'exaggeration': 1.0 })
+            }
         })
     }
 
     initProxy(map) {
-        map.addSource('underwater-dem', {
+        map.addSource('underwater-dem-1', {
             'type': 'raster-dem',
-            // 'url': 'mapbox://mapbox.terrain-rgb',
             'tiles': [
-                // '/TTB/BH/{z}/{x}/{y}.png'
+                '/TTB/BH/{z}/{x}/{y}.png'
+            ],
+            'tileSize': 512,
+            'maxzoom': 14
+        })
+        map.addSource('underwater-dem-2', {
+            'type': 'raster-dem',
+            'tiles': [
                 '/TTB/rgbfyBH/{z}/{x}/{y}.png'
             ],
             'tileSize': 512,
             'maxzoom': 14
         })
-        // map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': this.exaggeration });
-        map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': 1.0 })
+        map.setTerrain({ 'source': 'underwater-dem-1', 'exaggeration': 1.0 })
     }
 
     initGUI() {
@@ -175,6 +188,7 @@ export default class TerrainByProxyTile {
         this.gui.add(this, "interval", 0.1, 10, 0.1).onChange(() => { })
         this.gui.add(this, "ep", -3.0, 3.0, 1.0).onChange(() => { })
         this.gui.add(this, "smoothingPassCount", 0, 8, 1).onChange(() => { })
+        this.gui.add(this, "use_skirt", 0, 1, 1).onChange(() => { })
     }
 
 
@@ -290,18 +304,18 @@ export default class TerrainByProxyTile {
         // let renderBuffer = createRenderBuffer(gl, this.canvasWidth, this.canvasHeight)
         this.meshFbo = createFrameBuffer(gl, [this.meshTexture], this.meshDepthTexture, null)
 
-        this.grid = createGrid(8192, 128 + 1)
-        let posBuffer = createVBO(gl, this.grid.vertices)
-        let idxBuffer = createIBO(gl, this.grid.indices)
-        this.meshElements = this.grid.indices.length
+        const { meshElements: meshElements_128, meshVao: meshVao_128 } = this.createTerrainGridsVao(128)
+        this.meshElements_128 = meshElements_128
+        this.meshVao_128 = meshVao_128
 
-        this.meshVao = gl.createVertexArray()
-        gl.bindVertexArray(this.meshVao)
-        gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer)
-        gl.enableVertexAttribArray(0)
-        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0)
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuffer)
-        gl.bindVertexArray(null)
+        const { meshElements: meshElements_64, meshVao: meshVao_64 } = this.createTerrainGridsVao(64)
+        this.meshElements_64 = meshElements_64
+        this.meshVao_64 = meshVao_64
+
+        const { meshElements: meshElements_32, meshVao: meshVao_32 } = this.createTerrainGridsVao(32)
+        this.meshElements_32 = meshElements_32
+        this.meshVao_32 = meshVao_32
+
 
         //// smoothing pass ////
         this.tempSmoothingFbo = createFrameBuffer(gl, [this.tempSmoothingTexture], null, null);
@@ -436,13 +450,29 @@ export default class TerrainByProxyTile {
         gl.depthFunc(gl.LESS)
 
         gl.useProgram(this.meshProgram);
-        gl.bindVertexArray(this.meshVao);
+        // gl.bindVertexArray(this.meshVao);
         gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_altitudeDegree'), this.altitudeDeg)
         gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_azimuthDegree'), this.azimuthDeg)
         gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'ep'), this.ep)
         for (const coord of tileIDs) {
 
             const tile = sourceCache.getTile(coord);
+            const z = tile.tileID.toUnwrapped().canonical.z
+
+            // if (z < 14) {
+            //     this.meshElements = this.meshElements_128
+            //     this.meshVao = this.meshVao_128
+            // } else if (z < 15) {
+            //     this.meshElements = this.meshElements_64
+            //     this.meshVao = this.meshVao_64
+            // } else {
+            //     this.meshElements = this.meshElements_32
+            //     this.meshVao = this.meshVao_32
+            // }
+            this.meshElements = this.meshElements_64
+            this.meshVao = this.meshVao_64
+            gl.bindVertexArray(this.meshVao);
+
 
             // const prevDemTile = terrain.prevTerrainTileForTile[coord.key];
             // const nextDemTile = terrain.terrainTileForTile[coord.key];
@@ -480,7 +510,7 @@ export default class TerrainByProxyTile {
             gl.activeTexture(gl.TEXTURE0)
             gl.bindTexture(gl.TEXTURE_2D, demTexture)
             gl.uniform1i(gl.getUniformLocation(this.meshProgram, 'float_dem_texture'), 0);
-
+            gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'use_skirt'), this.use_skirt)
             gl.uniformMatrix4fv(gl.getUniformLocation(this.meshProgram, 'u_matrix'), false, uniformValues['u_matrix'])
             gl.uniform2fv(gl.getUniformLocation(this.meshProgram, 'u_dem_tl'), uniformValues['u_dem_tl']);
             gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_dem_size'), uniformValues['u_dem_size']);
@@ -489,10 +519,10 @@ export default class TerrainByProxyTile {
             gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_skirt_height'), uniformValues['u_skirt_height'])
             gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_rand'), proxyId.x * proxyId.y * 2)
 
-            // if(this.debugKey === 'l')
-            //     gl.drawElements(gl.LINES, this.meshElements, gl.UNSIGNED_SHORT, 0);
-            // else
-            gl.drawElements(gl.TRIANGLES, this.meshElements, gl.UNSIGNED_SHORT, 0);
+            if (this.debugKey === 'l')
+                gl.drawElements(gl.LINES, this.meshElements, gl.UNSIGNED_SHORT, 0);
+            else
+                gl.drawElements(gl.TRIANGLES, this.meshElements, gl.UNSIGNED_SHORT, 0);
 
         }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
@@ -658,7 +688,7 @@ export default class TerrainByProxyTile {
 
 
 
-
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Pass 3: Model Render Pass
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -786,6 +816,28 @@ export default class TerrainByProxyTile {
         mesh.texture = texture;
         return mesh
     }
+
+    createTerrainGridsVao(element = 128) {
+        let gl = this.gl
+        let grid = createGrid(8192, element + 1)
+        let posBuffer = createVBO(gl, grid.vertices)
+        let idxBuffer = createIBO(gl, grid.indices)
+        let meshElements = grid.indices.length
+
+        let meshVao = gl.createVertexArray()
+        gl.bindVertexArray(meshVao)
+        gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer)
+        gl.enableVertexAttribArray(0)
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0)
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuffer)
+        gl.bindVertexArray(null)
+
+        return {
+            meshElements,
+            meshVao
+        }
+    }
+
 
 
     async initDebug() {

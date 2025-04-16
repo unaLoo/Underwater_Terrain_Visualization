@@ -115,12 +115,10 @@ export default class TerrainByProxyTile {
             },
         ]
 
-
-        // window.addEventListener('keydown', (event) => {
-        //     this.debugKey = event.key
-        //     this.map.triggerRepaint()
-        // })
-
+        window.addEventListener('keydown', (event) => {
+            this.debugKey = event.key
+            this.map.triggerRepaint()
+        })
     }
 
     initProxy(map) {
@@ -153,13 +151,6 @@ export default class TerrainByProxyTile {
 
 
         this.gui = new dat.GUI()
-        // this.gui.add(this, 'altitudeDeg', 0, 90).step(1).onChange(() => { this.map.triggerRepaint() })
-        // this.gui.add(this, 'azimuthDeg', 0, 360).step(1).onChange(() => { this.map.triggerRepaint() })
-        // this.gui.add(this, 'exaggeration', 0, 30).step(1).onChange((value) => { this.map.setTerrain({ 'exaggeration': value }); this.map.triggerRepaint(); })
-        // this.gui.add(this, 'withContour', 0, 1).step(1).onChange(() => { this.map.triggerRepaint() })
-        // this.gui.add(this, 'withLighting', 0, 1).step(1).onChange(() => { this.map.triggerRepaint() })
-        // this.gui.add(this, 'altitudeDeg', 0, 90).step(1).onChange(() => { })
-        // this.gui.add(this, 'azimuthDeg', 0, 360).step(1).onChange(() => { })
         this.gui.add(this, 'exaggeration', 0, 100).step(1).onChange((value) => { this.map.setTerrain({ 'exaggeration': value }); this.map.triggerRepaint(); })
         this.gui.add(this, 'withContour', 0, 1).step(1).onChange(() => { })
         this.gui.add(this, 'withLighting', 0, 1).step(1).onChange(() => { })
@@ -180,11 +171,10 @@ export default class TerrainByProxyTile {
         this.gui.add(this, 'specularPower', 0, 50, 1).onChange(() => { })
 
         this.gui.add(this, "mixAlpha", 0, 1, 0.01).onChange(() => { })
-        // this.gui.add(this, "diffPower", 0, 3, 0.01).onChange(() => { })
 
         this.gui.add(this, "interval", 0.1, 10, 0.1).onChange(() => { })
         this.gui.add(this, "ep", -3.0, 3.0, 1.0).onChange(() => { })
-        this.gui.add(this, "smoothingPassCount", 0, 20, 1).onChange(() => { })
+        this.gui.add(this, "smoothingPassCount", 0, 8, 1).onChange(() => { })
     }
 
 
@@ -499,7 +489,9 @@ export default class TerrainByProxyTile {
             gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_skirt_height'), uniformValues['u_skirt_height'])
             gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_rand'), proxyId.x * proxyId.y * 2)
 
-            // gl.drawElements(gl.LINES, this.meshElements, gl.UNSIGNED_SHORT, 0);
+            // if(this.debugKey === 'l')
+            //     gl.drawElements(gl.LINES, this.meshElements, gl.UNSIGNED_SHORT, 0);
+            // else
             gl.drawElements(gl.TRIANGLES, this.meshElements, gl.UNSIGNED_SHORT, 0);
 
         }

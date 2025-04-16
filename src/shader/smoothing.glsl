@@ -32,11 +32,21 @@ void main() {
     vec2 texelSize = vec2(1.0 / u_textureSize.x, 1.0 / u_textureSize.y);
     vec4 color = vec4(0.0);
 
+    if(abs((texture(u_texture, texcoords).r - 9999.0)) < 1e-5) {
+        fragColor = color;
+        return;
+    }
+
     // 3x3 高斯核采样
     for(int i = -1; i <= 1; ++i) {
         for(int j = -1; j <= 1; ++j) {
             vec2 offset = vec2(float(i), float(j)) * texelSize;
-            color += texture(u_texture, texcoords + offset) * u_kernel[(i + 1) * 3 + (j + 1)];
+            vec4 texel = texture(u_texture, texcoords + offset) * u_kernel[(i + 1) * 3 + (j + 1)];
+            if(abs((texel.r - 9999.0)) < 1e-5) {
+                fragColor = color;
+                return;
+            }
+            color += texel;
         }
     }
 

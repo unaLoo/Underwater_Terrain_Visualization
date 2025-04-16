@@ -182,6 +182,8 @@ void main() {
     float height = singleElevation(pos);
     float z = height * u_exaggeration - skirt * u_skirt_height;
     // float z = height * u_exaggeration;
+
+    // float z = height * u_exaggeration;
     gl_Position = u_matrix * vec4(pos.xy, z, 1.0);
 
     /// HillShade ///

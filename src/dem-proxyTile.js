@@ -59,6 +59,7 @@ export default class TerrainByProxyTile {
         this.type = 'custom'
         this.renderingMode = '3d'
         this.frame = 0.0
+        this.debugKey = ''
 
         this.proxyLayerID = 'pxy-layer'
         this.proxySourceID = 'pxy-source'
@@ -94,6 +95,7 @@ export default class TerrainByProxyTile {
         this.specularPower = 40
         this.interval = 1.0
         this.ep = -3
+        this.smoothingPassCount = 3
 
         this.modelConfigs = [
             {
@@ -112,6 +114,12 @@ export default class TerrainByProxyTile {
                 modelPos: [120.53794466757358, 32.03551107103058],
             },
         ]
+
+
+        // window.addEventListener('keydown', (event) => {
+        //     this.debugKey = event.key
+        //     this.map.triggerRepaint()
+        // })
 
     }
 
@@ -176,6 +184,7 @@ export default class TerrainByProxyTile {
 
         this.gui.add(this, "interval", 0.1, 10, 0.1).onChange(() => { })
         this.gui.add(this, "ep", -3.0, 3.0, 1.0).onChange(() => { })
+        this.gui.add(this, "smoothingPassCount", 0, 20, 1).onChange(() => { })
     }
 
 
@@ -237,6 +246,9 @@ export default class TerrainByProxyTile {
 
         /// smoothing pass ///
         this.smoothingTexture = createTexture2D(gl, this.canvasWidth, this.canvasHeight, gl.RGBA32F, gl.RGBA, gl.FLOAT)
+        this.tempSmoothingTexture = createTexture2D(gl, this.canvasWidth, this.canvasHeight, gl.RGBA32F, gl.RGBA, gl.FLOAT);
+
+        this.finalMeshTexture = null
 
         /// contour pass ///
         const paletteBitmap = await loadImage('/images/contourPalette1D.png')
@@ -302,6 +314,7 @@ export default class TerrainByProxyTile {
         gl.bindVertexArray(null)
 
         //// smoothing pass ////
+        this.tempSmoothingFbo = createFrameBuffer(gl, [this.tempSmoothingTexture], null, null);
         this.smoothingFbo = createFrameBuffer(gl, [this.smoothingTexture], null, null)
         this.smoothingKernel = [
             1.0 / 16.0, 2.0 / 16.0, 1.0 / 16.0,
@@ -492,24 +505,56 @@ export default class TerrainByProxyTile {
         }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 
+        this.finalMeshTexture = this.meshTexture
+
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Pass 3: smoothing pass 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.smoothingFbo)
-        gl.viewport(0.0, 0.0, this.canvasWidth, this.canvasHeight)
-        gl.clearColor(0.0, 0.0, 0.0, 0.0)
-        gl.clear(gl.COLOR_BUFFER_BIT)
-        gl.disable(gl.BLEND)
+        if (this.smoothingPassCount > 0) {
+            let currentSmoothingSourceTexture = this.meshTexture
+            let currentSmoothingTargetFbo = this.smoothingFbo
 
-        gl.useProgram(this.smoothingProgram)
-        gl.bindTexture(gl.TEXTURE_2D, this.meshTexture)
-        gl.uniform1i(gl.getUniformLocation(this.smoothingProgram, 'u_texture'), 0)
-        gl.uniform2fv(gl.getUniformLocation(this.smoothingProgram, 'u_textureSize'), [this.canvasWidth, this.canvasHeight])
-        gl.uniform1fv(gl.getUniformLocation(this.smoothingProgram, 'u_kernel'), this.smoothingKernel)
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+            gl.bindFramebuffer(gl.FRAMEBUFFER, currentSmoothingTargetFbo)
+            gl.viewport(0.0, 0.0, this.canvasWidth, this.canvasHeight)
+            gl.clearColor(0.0, 0.0, 0.0, 0.0)
+            gl.clear(gl.COLOR_BUFFER_BIT)
+            gl.disable(gl.BLEND)
+
+            gl.useProgram(this.smoothingProgram)
+            gl.bindTexture(gl.TEXTURE_2D, currentSmoothingSourceTexture)
+            gl.uniform1i(gl.getUniformLocation(this.smoothingProgram, 'u_texture'), 0)
+            gl.uniform2fv(gl.getUniformLocation(this.smoothingProgram, 'u_textureSize'), [this.canvasWidth, this.canvasHeight])
+            gl.uniform1fv(gl.getUniformLocation(this.smoothingProgram, 'u_kernel'), this.smoothingKernel)
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+
+
+            for (let i = 1; i < this.smoothingPassCount; i++) {
+
+                currentSmoothingSourceTexture = i % 2 === 0 ? this.tempSmoothingTexture : this.smoothingTexture
+                currentSmoothingTargetFbo = i % 2 === 0 ? this.smoothingFbo : this.tempSmoothingFbo
+
+                gl.bindFramebuffer(gl.FRAMEBUFFER, currentSmoothingTargetFbo)
+                gl.viewport(0.0, 0.0, this.canvasWidth, this.canvasHeight)
+                gl.clearColor(0.0, 0.0, 0.0, 0.0)
+                gl.clear(gl.COLOR_BUFFER_BIT)
+                gl.disable(gl.BLEND)
+
+                gl.useProgram(this.smoothingProgram)
+                gl.bindTexture(gl.TEXTURE_2D, currentSmoothingSourceTexture)
+                gl.uniform1i(gl.getUniformLocation(this.smoothingProgram, 'u_texture'), 0)
+                gl.uniform2fv(gl.getUniformLocation(this.smoothingProgram, 'u_textureSize'), [this.canvasWidth, this.canvasHeight])
+                gl.uniform1fv(gl.getUniformLocation(this.smoothingProgram, 'u_kernel'), this.smoothingKernel)
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+
+            }
+
+            this.finalMeshTexture = this.smoothingPassCount % 2 === 0 ? this.tempSmoothingTexture : this.smoothingTexture
+
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        }
 
 
 
@@ -564,8 +609,11 @@ export default class TerrainByProxyTile {
         gl.useProgram(this.contourProgram)
 
         gl.activeTexture(gl.TEXTURE0)
-        // gl.bindTexture(gl.TEXTURE_2D, this.meshTexture)
-        gl.bindTexture(gl.TEXTURE_2D, this.smoothingTexture)
+        // if (this.debugKey === '1')
+        //     gl.bindTexture(gl.TEXTURE_2D, this.meshTexture)
+        // else
+        //     gl.bindTexture(gl.TEXTURE_2D, this.smoothingTexture)
+        gl.bindTexture(gl.TEXTURE_2D, this.finalMeshTexture)
         gl.activeTexture(gl.TEXTURE1)
         gl.bindTexture(gl.TEXTURE_2D, this.paletteTexture)
         gl.activeTexture(gl.TEXTURE2)

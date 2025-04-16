@@ -126,35 +126,8 @@ export default class TerrainByProxyTile {
             'tileSize': 512,
             'maxzoom': 14
         })
-        map.addSource(this.proxySourceID,
-            {
-                type: 'geojson',
-                data: {
-                    "type": "FeatureCollection",
-                    "features": [{
-                        "type": "Feature",
-                        "properties": {},
-                        "geometry": {
-                            "coordinates": [[[-1, 1], [1, 1], [1, -1], [-1, -1], [-1, 1]]],
-                            "type": "Polygon"
-                        }
-                    }]
-                }
-            }
-        )
         // map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': this.exaggeration });
-        map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': 1.0 });
-        map.addLayer(
-            {
-                id: this.proxyLayerID,
-                type: 'fill',
-                source: this.proxySourceID,
-                paint: {
-                    'fill-color': '#006eff',
-                    'fill-opacity': 0.01
-                }
-            }
-        )
+        map.setTerrain({ 'source': 'underwater-dem', 'exaggeration': 1.0 })
     }
 
     initGUI() {
@@ -221,7 +194,6 @@ export default class TerrainByProxyTile {
         this.maskgeojson = (await axios.get(this.maskURL)).data
 
         this.initProxy(map)
-        this.proxySouceCache = map.style.getOwnSourceCache(this.proxySourceID);
 
         this.canvasWidth = gl.canvas.width
         this.canvasHeight = gl.canvas.height

@@ -1,5 +1,5 @@
 import mapboxgl from "mapbox-gl"
-import "mapbox-gl/dist/mapbox-gl.css";
+import "mapbox-gl/dist/mapbox-gl.css"
 import TerrainByProxyTile from './dem-proxyTile'
 // import TerrainByProxyTile from "./debug";
 
@@ -22,27 +22,70 @@ export const initMap = () => {
         zoom: mapInitialConfig.zoom,
         pitch: mapInitialConfig.pitch,
     }).on('load', () => {
-        // map.showTileBoundaries = true;
+
+        getMapViewInfo(map)
+
+
+        map.showTileBoundaries = true;
         map.addLayer(new TerrainByProxyTile())
 
+        map.on('moveend', () => {
+            setMapViewInfo(map)
+        })
 
-        // // query terrain elevation on click
-        // const popup = new mapboxgl.Popup({
-        //     closeButton: false,
-        //     closeOnClick: false,
-        //     anchor: 'bottom',
-        // });
-        // map.on('click', e => {
-        //     const coordinate = [e.lngLat.lng, e.lngLat.lat];
-        //     const elevation = map.queryTerrainElevation(coordinate);
-        //     console.log(coordinate, elevation)
-        //     popup.setLngLat(coordinate).setHTML(`<p>高程: ${elevation.toFixed(2)}米</p>`).addTo(map);
-        // })
+
+        // query terrain elevation on click
+        const popup = new mapboxgl.Popup({
+            closeButton: false,
+            closeOnClick: false,
+            anchor: 'bottom',
+        });
+        map.on('click', e => {
+            const coordinate = [e.lngLat.lng, e.lngLat.lat];
+            const elevation = map.queryTerrainElevation(coordinate);
+            console.log(coordinate, elevation)
+            popup.setLngLat(coordinate).setHTML(`<p>高程: ${elevation.toFixed(2)}米</p>`).addTo(map);
+        })
 
 
     })
 }
 
+const debounce = (func, delay = 300) => {
+    let timer = null
+    return function (...args) {
+        timer && clearTimeout(timer)
+        timer = setTimeout(() => {
+            func.apply(this, args)
+        }, delay)
+    }
+}
+
+
+const getMapViewInfo = (map) => {
+    const view = localStorage.getItem('mapViewInfo')
+    if (view) {
+        const { center, zoom, pitch, bearing } = JSON.parse(view)
+        map.setCenter(center)
+        map.setZoom(zoom)
+        map.setPitch(pitch)
+        map.setBearing(bearing)
+    }
+}
+
+const setMapViewInfo = debounce((map) => {
+    const center = map.getCenter()
+    const zoom = map.getZoom()
+    const pitch = map.getPitch()
+    const bearing = map.getBearing()
+    const view = {
+        center,
+        zoom,
+        pitch,
+        bearing
+    }
+    localStorage.setItem('mapViewInfo', JSON.stringify(view))
+})
 
 
 ////////// HELPERS ///////////

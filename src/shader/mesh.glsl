@@ -35,10 +35,22 @@ vec4 tileUvToDemSample(vec2 uv, float dem_size, float dem_scale, vec2 dem_tl) {
     return vec4((pos - f + 0.5) / (dem_size + 2.0), f);
 }
 
+float epsilon(float x) {
+    return 0.000001 * x;
+}
+
 float singleElevation(vec2 apos) {
     vec2 pos = (u_dem_size * (apos / 8192.0 * u_dem_scale + u_dem_tl) + 1.0) / (u_dem_size + 2.0);
-    float m = texture(float_dem_texture, pos).r + (pos.x * 0.0000001  + pos.y * 0.0000001) * ep ; // !!!! 
+    float m = texture(float_dem_texture, pos).r + ep * 1e-6; // !!!!
+    // float m = texture(float_dem_texture, pos).r; // !!!!
     return m;
+
+    // float f_h = m;
+    // f_h = 1000.0 * f_h;
+    // int i_h = int(f_h);
+    // return float(i_h) / 1000.0;
+    // float factor = 10000.0;
+    // return f_h - mod(f_h, 0.1);
 }
 
 float elevation(vec2 apos) {
@@ -168,8 +180,8 @@ void main() {
 
     // float height = elevation(pos);
     float height = singleElevation(pos);
-    // float z = height * u_exaggeration - skirt * u_skirt_height;
-    float z = height * u_exaggeration;
+    float z = height * u_exaggeration - skirt * u_skirt_height;
+    // float z = height * u_exaggeration;
     gl_Position = u_matrix * vec4(pos.xy, z, 1.0);
 
     /// HillShade ///

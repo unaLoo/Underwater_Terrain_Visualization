@@ -56,7 +56,7 @@ vec2 decomposeHeight(float heightValue) {
 
 vec4 loadTerrainInfo(vec2 uv, vec2 offset) {
 
-    vec2 dim = vec2(textureSize(meshTexture, 0));
+    vec2 dim = vec2(textureSize(meshTexture, 0)) - 1.0;
     // return texelFetch(meshTexture, ivec2(uv * dim + offset), 0);
     vec4 texel = texelFetch(meshTexture, ivec2(uv * dim + offset), 0);
     vec2 height_skirt = decomposeHeight(texel.r);
@@ -139,7 +139,7 @@ void main() {
     // vec3 intervalColor = vec3(0.27);
     // Countours
     if(withContour == 1.0)
-        if(intervalN < intervalM || intervalE < intervalM || intervalS < intervalM || intervalW < intervalM) {
+        if(intervalN > intervalM || intervalE > intervalM || intervalS > intervalM || intervalW > intervalM) {
 
             outColor = intervalColor * 0.8;
             if(intervalM == 0) {

@@ -49,6 +49,7 @@ import contourCode from './shader/contour.glsl'
 import surfaceNoTileCode from './shader/waterSurfaceNoTile.glsl'
 import showCode from './shader/show.glsl'
 import modelCode from './shader/model.glsl'
+import smoothingCode from './shader/smoothing.glsl'
 
 export default class TerrainByProxyTile {
 
@@ -75,7 +76,7 @@ export default class TerrainByProxyTile {
         this.exaggeration = 30.0
         this.withContour = 1.0
         this.withLighting = 1.0
-        this.mixAlpha = 0.5
+        this.mixAlpha = 0.0
         this.elevationRange = [-15.513999999999996, 4.3745000000000003]
         this.diffPower = 1.1
 
@@ -92,7 +93,7 @@ export default class TerrainByProxyTile {
         this.LightPos = [-0.03, 0.1, 0.86]
         this.specularPower = 40
         this.interval = 1.0
-        this.ep = 100
+        this.ep = -3
 
         this.modelConfigs = [
             {
@@ -119,7 +120,8 @@ export default class TerrainByProxyTile {
             'type': 'raster-dem',
             // 'url': 'mapbox://mapbox.terrain-rgb',
             'tiles': [
-                '/TTB/BH/{z}/{x}/{y}.png'
+                // '/TTB/BH/{z}/{x}/{y}.png'
+                '/TTB/rgbfyBH/{z}/{x}/{y}.png'
             ],
             'tileSize': 512,
             'maxzoom': 14
@@ -177,7 +179,7 @@ export default class TerrainByProxyTile {
         // this.gui.add(this, 'withLighting', 0, 1).step(1).onChange(() => { this.map.triggerRepaint() })
         // this.gui.add(this, 'altitudeDeg', 0, 90).step(1).onChange(() => { })
         // this.gui.add(this, 'azimuthDeg', 0, 360).step(1).onChange(() => { })
-        this.gui.add(this, 'exaggeration', 0, 100).step(1).onChange((value) => { this.map.setTerrain({ 'exaggeration': value }); })
+        this.gui.add(this, 'exaggeration', 0, 100).step(1).onChange((value) => { this.map.setTerrain({ 'exaggeration': value }); this.map.triggerRepaint(); })
         this.gui.add(this, 'withContour', 0, 1).step(1).onChange(() => { })
         this.gui.add(this, 'withLighting', 0, 1).step(1).onChange(() => { })
 
@@ -200,7 +202,7 @@ export default class TerrainByProxyTile {
         // this.gui.add(this, "diffPower", 0, 3, 0.01).onChange(() => { })
 
         this.gui.add(this, "interval", 0.1, 10, 0.1).onChange(() => { })
-        this.gui.add(this, "ep", 0.0, 1000.0, 1.0).onChange(() => { })
+        this.gui.add(this, "ep", -3.0, 3.0, 1.0).onChange(() => { })
     }
 
 
@@ -229,6 +231,7 @@ export default class TerrainByProxyTile {
         this.maskProgram = createShaderFromCode(gl, maskCode)
         this.surfaceNormProgram = createShaderFromCode(gl, surfaceNormCode)
         this.meshProgram = createShaderFromCode(gl, meshCode)
+        this.smoothingProgram = createShaderFromCode(gl, smoothingCode)
         this.contourProgram = createShaderFromCode(gl, contourCode)
         // this.surfaceProgram = createShaderFromCode(gl, surfaceCode)
         this.surfaceNoTileProgram = createShaderFromCode(gl, surfaceNoTileCode)
@@ -259,6 +262,9 @@ export default class TerrainByProxyTile {
         this.meshTexture = createTexture2D(gl, this.canvasWidth, this.canvasHeight, gl.RGBA32F, gl.RGBA, gl.FLOAT)
         const depthTexture = this.meshDepthTexture = createTexture2D(gl, this.canvasWidth, this.canvasHeight, gl.DEPTH_COMPONENT32F, gl.DEPTH_COMPONENT, gl.FLOAT)
         this.emptyDEMTexture = createTexture2D(gl, 1, 1, gl.R32F, gl.RED, gl.FLOAT, new Float32Array([this.elevationRange[0]]))
+
+        /// smoothing pass ///
+        this.smoothingTexture = createTexture2D(gl, this.canvasWidth, this.canvasHeight, gl.RGBA32F, gl.RGBA, gl.FLOAT)
 
         /// contour pass ///
         const paletteBitmap = await loadImage('/images/contourPalette1D.png')
@@ -322,6 +328,14 @@ export default class TerrainByProxyTile {
         gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0)
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuffer)
         gl.bindVertexArray(null)
+
+        //// smoothing pass ////
+        this.smoothingFbo = createFrameBuffer(gl, [this.smoothingTexture], null, null)
+        this.smoothingKernel = [
+            1.0 / 16.0, 2.0 / 16.0, 1.0 / 16.0,
+            2.0 / 16.0, 4.0 / 16.0, 2.0 / 16.0,
+            1.0 / 16.0, 2.0 / 16.0, 1.0 / 16.0
+        ]
 
 
         //// contour pass /////
@@ -430,7 +444,6 @@ export default class TerrainByProxyTile {
 
 
 
-
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Pass 2: terrain mesh pass 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -508,6 +521,25 @@ export default class TerrainByProxyTile {
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 
 
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Pass 3: smoothing pass 
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.smoothingFbo)
+        gl.viewport(0.0, 0.0, this.canvasWidth, this.canvasHeight)
+        gl.clearColor(0.0, 0.0, 0.0, 0.0)
+        gl.clear(gl.COLOR_BUFFER_BIT)
+        gl.disable(gl.BLEND)
+
+        gl.useProgram(this.smoothingProgram)
+        gl.bindTexture(gl.TEXTURE_2D, this.meshTexture)
+        gl.uniform1i(gl.getUniformLocation(this.smoothingProgram, 'u_texture'), 0)
+        gl.uniform2fv(gl.getUniformLocation(this.smoothingProgram, 'u_textureSize'), [this.canvasWidth, this.canvasHeight])
+        gl.uniform1fv(gl.getUniformLocation(this.smoothingProgram, 'u_kernel'), this.smoothingKernel)
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+
+
 
 
 
@@ -560,7 +592,8 @@ export default class TerrainByProxyTile {
         gl.useProgram(this.contourProgram)
 
         gl.activeTexture(gl.TEXTURE0)
-        gl.bindTexture(gl.TEXTURE_2D, this.meshTexture)
+        // gl.bindTexture(gl.TEXTURE_2D, this.meshTexture)
+        gl.bindTexture(gl.TEXTURE_2D, this.smoothingTexture)
         gl.activeTexture(gl.TEXTURE1)
         gl.bindTexture(gl.TEXTURE_2D, this.paletteTexture)
         gl.activeTexture(gl.TEXTURE2)

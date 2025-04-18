@@ -144,10 +144,9 @@ void main() {
             outColor = intervalColor * 0.8;
             if(intervalM == 0) {
                 outColor = vec3(0.0);
-            }
-            else if(intervalM % 6 == 0) {
+            } else if(abs(float(intervalM) + 6.0) < 1e-5) {
                 outColor = vec3(0.65, 0.04, 0.04);
-            } else if(intervalM % 10 == 0) {
+            } else if(abs(float(intervalM) + 10.0) < 1e-5) {
                 outColor = vec3(0.03, 0.29, 0.46);
             }
         }

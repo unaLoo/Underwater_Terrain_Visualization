@@ -8,10 +8,10 @@ mapboxgl.accessToken = 'pk.eyJ1IjoieWNzb2t1IiwiYSI6ImNrenozdWdodDAza3EzY3BtdHh4c
 export const initMap = () => {
 
     const map = new mapboxgl.Map({
-        style: 'mapbox://styles/mapbox/dark-v11',
+        // style: 'mapbox://styles/mapbox/dark-v11',
         // style: EmptyStyle,
         // style: 'mapbox://styles/mapbox/light-v11',
-        // style: 'mapbox://styles/mapbox/satellite-streets-v12',
+        style: 'mapbox://styles/mapbox/satellite-streets-v12',
         container: 'map',
         projection: 'mercator',
         antialias: true,
@@ -25,26 +25,27 @@ export const initMap = () => {
 
         getMapViewInfo(map)
 
-        map.showTileBoundaries = true;
         map.addLayer(new TerrainByProxyTile())
-
+        
         map.on('moveend', () => {
             setMapViewInfo(map)
         })
-
-
+        
+        
+        map.addControl(new mapboxgl.NavigationControl());
+        // map.showTileBoundaries = true;
         // query terrain elevation on click
-        const popup = new mapboxgl.Popup({
-            closeButton: false,
-            closeOnClick: false,
-            anchor: 'bottom',
-        });
-        map.on('click', e => {
-            const coordinate = [e.lngLat.lng, e.lngLat.lat];
-            const elevation = map.queryTerrainElevation(coordinate);
-            console.log(coordinate, elevation)
-            popup.setLngLat(coordinate).setHTML(`<p>高程: ${elevation.toFixed(2)}米</p>`).addTo(map);
-        })
+        // const popup = new mapboxgl.Popup({
+        //     closeButton: false,
+        //     closeOnClick: false,
+        //     anchor: 'bottom',
+        // });
+        // map.on('click', e => {
+        //     const coordinate = [e.lngLat.lng, e.lngLat.lat];
+        //     const elevation = map.queryTerrainElevation(coordinate);
+        //     console.log(coordinate, elevation)
+        //     popup.setLngLat(coordinate).setHTML(`<p>高程: ${elevation.toFixed(2)}米</p>`).addTo(map);
+        // })
 
 
     })

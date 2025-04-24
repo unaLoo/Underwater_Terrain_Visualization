@@ -65,7 +65,8 @@ export default class TerrainByProxyTile {
         this.proxySourceID = 'pxy-source'
 
         // this.maskURL = '/mask/CJ.geojson'
-        this.maskURL = '/mask/BH_BBOX.geojson'
+        // this.maskURL = '/mask/BH_BBOX.geojson'
+        this.maskURL = '/mask/1.geojson'
 
         this.isReady = false
 
@@ -74,17 +75,22 @@ export default class TerrainByProxyTile {
 
         this.altitudeDeg = 45.0
         this.azimuthDeg = 135.0
-        this.exaggeration = 30.0
+        this.u_offset_x = 1.5
+        this.u_offset_y = 1.5
+        this.exaggeration = 70.0
         this.withContour = 1.0
         this.withLighting = 1.0
         this.mixAlpha = 0.0
-        this.elevationRange = [-15.513999999999996, 4.3745000000000003]
+        // this.elevationRange = [-15.513999999999996, 4.3745000000000003]
+        this.elevationRange = [-15.514, 10.0]
         this.diffPower = 1.1
         this.use_skirt = 1.0
 
         // 如果是深色矢量底图，建议配色如下
-        this.shallowColor = [122, 52, 22]
-        this.deepColor = [130, 130, 130]
+        // this.shallowColor = [122, 52, 22]
+        // this.deepColor = [130, 130, 130]
+        this.shallowColor = [0, 0, 0]
+        this.deepColor = [255, 255, 255]
 
         // 如果是影像底图，建议配色如下
         // this.shallowColor = [50, 25, 0]
@@ -96,7 +102,8 @@ export default class TerrainByProxyTile {
         this.specularPower = 40
         this.interval = 1.0
         this.ep = -3
-        this.smoothingPassCount = 3
+        // this.smoothingPassCount = 3
+        this.smoothingPassCount = 0
 
         this.modelConfigs = [
             {
@@ -121,10 +128,10 @@ export default class TerrainByProxyTile {
             this.map.triggerRepaint()
 
             if (event.key === '2') {
-                this.map.setTerrain({ 'source': 'underwater-dem-2', 'exaggeration': 1.0 })
+                this.map.setTerrain({ 'source': 'underwater-dem-2', 'exaggeration': this.exaggeration })
             }
             if (event.key === '1') {
-                this.map.setTerrain({ 'source': 'underwater-dem-1', 'exaggeration': 1.0 })
+                this.map.setTerrain({ 'source': 'underwater-dem-1', 'exaggeration': this.exaggeration })
             }
         })
     }
@@ -133,7 +140,7 @@ export default class TerrainByProxyTile {
         map.addSource('underwater-dem-1', {
             'type': 'raster-dem',
             'tiles': [
-                '/TTB/BH/{z}/{x}/{y}.png'
+                '/TTB/test/{z}/{x}/{y}.png'
             ],
             'tileSize': 512,
             'maxzoom': 14
@@ -146,7 +153,7 @@ export default class TerrainByProxyTile {
             'tileSize': 512,
             'maxzoom': 14
         })
-        map.setTerrain({ 'source': 'underwater-dem-1', 'exaggeration': 1.0 })
+        map.setTerrain({ 'source': 'underwater-dem-1', 'exaggeration': this.exaggeration })
     }
 
     initGUI() {
@@ -189,6 +196,8 @@ export default class TerrainByProxyTile {
         this.gui.add(this, "ep", -3.0, 3.0, 1.0).onChange(() => { })
         this.gui.add(this, "smoothingPassCount", 0, 8, 1).onChange(() => { })
         this.gui.add(this, "use_skirt", 0, 1, 1).onChange(() => { })
+        this.gui.add(this, 'u_offset_x', -5, 5, 0.1).onChange(() => { })
+        this.gui.add(this, 'u_offset_y', -5, 5, 0.1).onChange(() => { })
     }
 
 
@@ -453,6 +462,8 @@ export default class TerrainByProxyTile {
         // gl.bindVertexArray(this.meshVao);
         gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_altitudeDegree'), this.altitudeDeg)
         gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_azimuthDegree'), this.azimuthDeg)
+        gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_offset_x'), this.u_offset_x)
+        gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_offset_y'), this.u_offset_y)
         gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'ep'), this.ep)
         for (const coord of tileIDs) {
 
@@ -460,8 +471,8 @@ export default class TerrainByProxyTile {
             const z = tile.tileID.toUnwrapped().canonical.z
 
             // if (z < 14) {
-            //     this.meshElements = this.meshElements_128
-            //     this.meshVao = this.meshVao_128
+                this.meshElements = this.meshElements_128
+                this.meshVao = this.meshVao_128
             // } else if (z < 15) {
             //     this.meshElements = this.meshElements_64
             //     this.meshVao = this.meshVao_64
@@ -469,8 +480,10 @@ export default class TerrainByProxyTile {
             //     this.meshElements = this.meshElements_32
             //     this.meshVao = this.meshVao_32
             // }
-            this.meshElements = this.meshElements_64
-            this.meshVao = this.meshVao_64
+            // this.meshElements = this.meshElements_64
+            // this.meshVao = this.meshVao_64
+            // this.meshElements = this.meshElements_32
+            // this.meshVao = this.meshVao_32
             gl.bindVertexArray(this.meshVao);
 
 
@@ -495,7 +508,7 @@ export default class TerrainByProxyTile {
                 'u_dem_size': 514 - 2,
             }
             const demTile = this.demStore.get(coord.key)
-            if (!demTile) { console.log('no dem tile for', coord.toString()); continue }
+            if (!demTile) { continue }
             const proxyId = tile.tileID.canonical;
             const demId = demTile.tileID.canonical;
             const demScaleBy = Math.pow(2, demId.z - proxyId.z);
@@ -534,7 +547,7 @@ export default class TerrainByProxyTile {
         // Pass 3: smoothing pass 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        if (this.smoothingPassCount > 0) {
+        if (false && this.smoothingPassCount > 0) {
             let currentSmoothingSourceTexture = this.meshTexture
             let currentSmoothingTargetFbo = this.smoothingFbo
 
@@ -674,6 +687,8 @@ export default class TerrainByProxyTile {
 
         gl.activeTexture(gl.TEXTURE0)
         gl.bindTexture(gl.TEXTURE_2D, this.contourCanvasTexture)
+        // gl.bindTexture(gl.TEXTURE_2D, this.maskTexture)
+        // gl.bindTexture(gl.TEXTURE_2D, this.finalMeshTexture)
         gl.activeTexture(gl.TEXTURE1)
         gl.bindTexture(gl.TEXTURE_2D, this.surfaceCanvasTexture)
         gl.uniform1i(gl.getUniformLocation(this.showProgram, 'showTexture1'), 0)

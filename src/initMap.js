@@ -11,7 +11,7 @@ export const initMap = () => {
         // style: 'mapbox://styles/mapbox/dark-v11',
         // style: EmptyStyle,
         // style: 'mapbox://styles/mapbox/light-v11',
-        // style: 'mapbox://styles/mapbox/satellite-streets-v12',
+        style: 'mapbox://styles/mapbox/satellite-streets-v12',
         container: 'map',
         projection: 'mercator',
         antialias: true,

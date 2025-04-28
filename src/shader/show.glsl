@@ -32,18 +32,18 @@ out vec4 fragColor;
 
 void main() {
     vec4 color1 = texture(showTexture1, texcoords);
-    // vec4 color2 = texture(showTexture2, texcoords);
+    vec4 color2 = texture(showTexture2, texcoords);
 
-    // float alpha = mixAlpha;
-    // if(color1.a == 0.0 || color2.a == 0.0) {
-    //     alpha = 0.0;
-    // }
-    // vec4 color = mix(color1, color2, alpha);
-    // // fragColor = vec4(color);
-    // fragColor = vec4(color.rgb, color.a * 1.0);
+    float alpha = mixAlpha;
+    if(color1.a == 0.0 || color2.a == 0.0) {
+        alpha = 0.0;
+    }
+    vec4 color = mix(color1, color2, alpha);
+    // fragColor = vec4(color);
+    fragColor = vec4(color.rgb, color.a * 1.0);
 
     // fragColor = vec4(vec3(color1), 0.3);
-    fragColor = color1;
+    // fragColor = color1;
 }
 
 #endif

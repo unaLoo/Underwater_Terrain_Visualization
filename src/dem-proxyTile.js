@@ -77,24 +77,17 @@ export default class TerrainByProxyTile {
         this.azimuthDeg = 135.0
         this.u_offset_x = 1.5
         this.u_offset_y = 1.5
-        this.exaggeration = 70.0
+        this.exaggeration = 30.0
         this.withContour = 1.0
         this.withLighting = 1.0
         this.mixAlpha = 0.0
-        // this.elevationRange = [-15.513999999999996, 4.3745000000000003]
-        this.elevationRange = [-15.514, 10.0]
+        this.elevationRange = [-15.513999999999996, 4.3745000000000003]
+        // this.elevationRange = [-15.514, 10.0]
         this.diffPower = 1.1
         this.use_skirt = 1.0
 
-        // 如果是深色矢量底图，建议配色如下
-        // this.shallowColor = [122, 52, 22]
-        // this.deepColor = [130, 130, 130]
         this.shallowColor = [0, 0, 0]
-        this.deepColor = [103, 8, 8]
-
-        // 如果是影像底图，建议配色如下
-        // this.shallowColor = [50, 25, 0]
-        // this.deepColor = [175, 175, 175]
+        this.deepColor = [23, 38, 37]
 
 
         this.SamplerParams = [13.6, -11.5, 1.56, -22.4]
@@ -515,7 +508,7 @@ export default class TerrainByProxyTile {
 
             // const drapedTexture = tile.texture //地图纹理
             let demTexture = this.emptyDEMTexture
-            if (demTile.demTexture && demTile.demTexture.texture){
+            if (demTile.demTexture && demTile.demTexture.texture) {
                 demTexture = demTile.demTexture.texture
                 uniformValues.u_dem_size = demTile.demTexture.size[0] - 2
             }

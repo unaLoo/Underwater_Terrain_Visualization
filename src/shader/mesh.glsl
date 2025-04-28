@@ -47,7 +47,7 @@ float singleElevation(vec2 apos) {
     // // 1
     vec2 pos = (u_dem_size * (apos / 8192.0 * u_dem_scale + u_dem_tl) + vec2(u_offset_x, u_offset_y)) / (u_dem_size + 2.0);
     // return texture(float_dem_texture, pos).r + ep * 1e-6;
-    return texture(float_dem_texture, pos).r * u_exaggeration + ep * 1e-6;
+    return (texture(float_dem_texture, pos).r + ep * 1e-6) * u_exaggeration;
 
     // vec2 pos = (u_dem_size * (apos / 8192.0 * u_dem_scale + u_dem_tl) + 1.0) / (u_dem_size + 2.0);
     // float m = texture(float_dem_texture, pos).r; // !!!!

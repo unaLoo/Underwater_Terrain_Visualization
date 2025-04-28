@@ -11,7 +11,7 @@ export const initMap = () => {
         // style: 'mapbox://styles/mapbox/dark-v11',
         // style: EmptyStyle,
         // style: 'mapbox://styles/mapbox/light-v11',
-        style: 'mapbox://styles/mapbox/satellite-streets-v12',
+        // style: 'mapbox://styles/mapbox/satellite-streets-v12',
         container: 'map',
         projection: 'mercator',
         antialias: true,
@@ -26,13 +26,14 @@ export const initMap = () => {
         getMapViewInfo(map)
 
         map.addLayer(new TerrainByProxyTile())
-        
+
         map.on('moveend', () => {
             setMapViewInfo(map)
         })
-        
-        
+
+
         map.addControl(new mapboxgl.NavigationControl());
+        // map.showTerrainWireframe = true
         // map.showTileBoundaries = true;
         // query terrain elevation on click
         // const popup = new mapboxgl.Popup({

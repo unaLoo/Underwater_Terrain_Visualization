@@ -65,8 +65,8 @@ export default class TerrainByProxyTile {
         this.proxySourceID = 'pxy-source'
 
         // this.maskURL = '/mask/CJ.geojson'
-        // this.maskURL = '/mask/BH_BBOX.geojson'
-        this.maskURL = '/mask/1.geojson'
+        this.maskURL = '/mask/BH_BBOX.geojson'
+        // this.maskURL = '/mask/1.geojson'
 
         this.isReady = false
 
@@ -90,7 +90,7 @@ export default class TerrainByProxyTile {
         // this.shallowColor = [122, 52, 22]
         // this.deepColor = [130, 130, 130]
         this.shallowColor = [0, 0, 0]
-        this.deepColor = [255, 255, 255]
+        this.deepColor = [103, 8, 8]
 
         // 如果是影像底图，建议配色如下
         // this.shallowColor = [50, 25, 0]
@@ -127,11 +127,8 @@ export default class TerrainByProxyTile {
             this.debugKey = event.key
             this.map.triggerRepaint()
 
-            if (event.key === '2') {
-                this.map.setTerrain({ 'source': 'underwater-dem-2', 'exaggeration': this.exaggeration })
-            }
-            if (event.key === '1') {
-                this.map.setTerrain({ 'source': 'underwater-dem-1', 'exaggeration': this.exaggeration })
+            if (this.debugKey === 'w') {
+                this.map.showTerrainWireframe = !this.map.showTerrainWireframe
             }
         })
     }
@@ -356,6 +353,7 @@ export default class TerrainByProxyTile {
 
         await this.initDebug()
 
+        this.map.painter.terrain.useVertexMorphing = false
         this.isReady = true
 
 
@@ -471,8 +469,8 @@ export default class TerrainByProxyTile {
             const z = tile.tileID.toUnwrapped().canonical.z
 
             // if (z < 14) {
-                this.meshElements = this.meshElements_128
-                this.meshVao = this.meshVao_128
+            this.meshElements = this.meshElements_128
+            this.meshVao = this.meshVao_128
             // } else if (z < 15) {
             //     this.meshElements = this.meshElements_64
             //     this.meshVao = this.meshVao_64
@@ -517,8 +515,10 @@ export default class TerrainByProxyTile {
 
             // const drapedTexture = tile.texture //地图纹理
             let demTexture = this.emptyDEMTexture
-            if (demTile.demTexture && demTile.demTexture.texture)
+            if (demTile.demTexture && demTile.demTexture.texture){
                 demTexture = demTile.demTexture.texture
+                uniformValues.u_dem_size = demTile.demTexture.size[0] - 2
+            }
 
             gl.activeTexture(gl.TEXTURE0)
             gl.bindTexture(gl.TEXTURE_2D, demTexture)

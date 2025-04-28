@@ -64,6 +64,7 @@ uniform sampler2D u_surfaceNormalTexture;
 uniform vec3 u_cameraPos;
 uniform vec2 u_screenSize;
 uniform float u_time;
+uniform float u_threshold;
 uniform vec2 u_elevationRange;
 
 uniform vec3 shallowColor;
@@ -161,7 +162,7 @@ void main() {
     }
 
     // float alpha = 0.2;
-    float alpha = originalDepth > -1.5 ? 0.0 : 0.3;
+    float alpha = originalDepth > u_threshold ? 0.0 : 1.0;
     FragColor = vec4(waterColor, alpha);
 
     // FragColor = vec4(1.0,0.0,0.0,1.0);

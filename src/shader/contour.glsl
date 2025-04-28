@@ -40,6 +40,7 @@ uniform vec3 LightPos;
 uniform float diffPower;
 uniform vec3 shallowColor;
 uniform vec3 deepColor;
+uniform float u_threshold;
 
 out vec4 fragColor;
 
@@ -123,7 +124,7 @@ void main() {
         // // hillshade = clamp(pow(hillshade, 3.0) - 0.1 , 0.0, 1.0);
         // // hillshade = sigmoid(hillshade);
         // diff = hillshade;
-        vec3 lightPosition = vec3(-1.36, 0.77, 0.79);
+        // vec3 lightPosition = vec3(-1.36, 0.77, 0.79);
         vec3 lightDir = normalize(LightPos - vec3(0.0));
         vec3 norm = M.gba;
         diff = clamp(dot(norm, lightDir), 0.0, 1.0);
@@ -145,17 +146,19 @@ void main() {
             if(intervalM == 0) {
                 outColor = vec3(0.0);
             } else if(abs(float(intervalM) + 6.0) < 1e-5) {
-                outColor = vec3(0.65, 0.04, 0.04);
+                outColor = vec3(1.0, 0.23, 0.23);
             } else if(abs(float(intervalM) + 10.0) < 1e-5) {
-                outColor = vec3(0.03, 0.29, 0.46);
+                outColor = vec3(0.09, 0.62, 0.98);
             }
         }
 
     float alpha = M.r < 9999.0 ? 1.0 : 0.0;
     float originalElevation = M.r;
-    float normalizedElevation = (M.r - e.x) / (e.y - e.x) + 0.2;
+    float normalizedElevation = (M.r - e.x) / (e.y - e.x);
     alpha = alpha * (1.0 - normalizedElevation);// 越高越透明
-    // alpha = 0.5;
+    if(originalElevation > u_threshold) {
+        alpha = 0.0;
+    }
     fragColor = vec4(outColor, alpha);
 
     // fragColor = vec4(vec3(diff * 0.8), 1.0);

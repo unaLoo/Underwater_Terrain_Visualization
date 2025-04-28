@@ -80,14 +80,14 @@ export default class TerrainByProxyTile {
         this.exaggeration = 30.0
         this.withContour = 1.0
         this.withLighting = 1.0
-        this.mixAlpha = 0.0
+        this.mixAlpha = 0.4
         this.elevationRange = [-15.513999999999996, 4.3745000000000003]
         // this.elevationRange = [-15.514, 10.0]
         this.diffPower = 1.1
         this.use_skirt = 1.0
 
-        this.shallowColor = [0, 0, 0]
-        this.deepColor = [23, 38, 37]
+        this.shallowColor = [182, 153, 124]
+        this.deepColor = [22,26,33]
 
 
         this.SamplerParams = [13.6, -11.5, 1.56, -22.4]
@@ -97,6 +97,7 @@ export default class TerrainByProxyTile {
         this.ep = -3
         // this.smoothingPassCount = 3
         this.smoothingPassCount = 0
+        this.u_threshold = -1.0
 
         this.modelConfigs = [
             {
@@ -188,6 +189,8 @@ export default class TerrainByProxyTile {
         this.gui.add(this, "use_skirt", 0, 1, 1).onChange(() => { })
         this.gui.add(this, 'u_offset_x', -5, 5, 0.1).onChange(() => { })
         this.gui.add(this, 'u_offset_y', -5, 5, 0.1).onChange(() => { })
+
+        this.gui.add(this, 'u_threshold', -4, 2, 0.01).onChange(() => { })
     }
 
 
@@ -540,7 +543,7 @@ export default class TerrainByProxyTile {
         // Pass 3: smoothing pass 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        if (false && this.smoothingPassCount > 0) {
+        if (this.smoothingPassCount > 0) {
             let currentSmoothingSourceTexture = this.meshTexture
             let currentSmoothingTargetFbo = this.smoothingFbo
 
@@ -621,6 +624,7 @@ export default class TerrainByProxyTile {
         gl.uniform3fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'LightPos'), this.LightPos)
         gl.uniform1f(gl.getUniformLocation(this.surfaceNoTileProgram, 'specularPower'), this.specularPower)
         gl.uniformMatrix4fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_matrix'), false, matrix)
+        gl.uniform1f(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_threshold'), this.u_threshold)
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
 
@@ -659,6 +663,7 @@ export default class TerrainByProxyTile {
         gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'diffPower'), this.diffPower)
         gl.uniform3fv(gl.getUniformLocation(this.contourProgram, 'shallowColor'), this.shallowColor)
         gl.uniform3fv(gl.getUniformLocation(this.contourProgram, 'deepColor'), this.deepColor)
+        gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'u_threshold'), this.u_threshold)
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
@@ -673,8 +678,10 @@ export default class TerrainByProxyTile {
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
         gl.viewport(0.0, 0.0, gl.canvas.width, gl.canvas.height)
 
-        gl.enable(gl.BLEND)
-        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+        // gl.enable(gl.BLEND)
+        // gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
         gl.useProgram(this.showProgram)
 

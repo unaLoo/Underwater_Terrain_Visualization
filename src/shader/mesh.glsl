@@ -47,7 +47,7 @@ float singleElevation(vec2 apos) {
     // // 1
     vec2 pos = (u_dem_size * (apos / 8192.0 * u_dem_scale + u_dem_tl) + vec2(u_offset_x, u_offset_y)) / (u_dem_size + 2.0);
     // return texture(float_dem_texture, pos).r + ep * 1e-6;
-    return (texture(float_dem_texture, pos).r + ep * 1e-6) * u_exaggeration;
+    return texture(float_dem_texture, pos).r + ep * 1e-6;
 
     // vec2 pos = (u_dem_size * (apos / 8192.0 * u_dem_scale + u_dem_tl) + 1.0) / (u_dem_size + 2.0);
     // float m = texture(float_dem_texture, pos).r; // !!!!
@@ -125,10 +125,10 @@ vec3 calcMeshNormal(vec2 apos) {
     // g,  h,  i
     //////////////
     float factor = 1.0;
-    float b = singleElevation(apos + vec2(0.0, 1.0 * factor));
-    float d = singleElevation(apos + vec2(-1.0 * factor, 0.0));
-    float f = singleElevation(apos + vec2(1.0 * factor, 0.0));
-    float h = singleElevation(apos + vec2(0.0, -1.0 * factor));
+    float b = singleElevation(apos + vec2(0.0, 1.0 * factor)) * u_exaggeration;
+    float d = singleElevation(apos + vec2(-1.0 * factor, 0.0)) * u_exaggeration;
+    float f = singleElevation(apos + vec2(1.0 * factor, 0.0)) * u_exaggeration;
+    float h = singleElevation(apos + vec2(0.0, -1.0 * factor)) * u_exaggeration;
 
     float tr = f; // E
     float bl = b; // N
@@ -194,7 +194,7 @@ void main() {
     // float height = elevation(pos);
     float height = singleElevation(pos);
     // float z = height * u_exaggeration - skirt * u_skirt_height;
-    float z = height - skirt * u_skirt_height * use_skirt;
+    float z = height * u_exaggeration - skirt * u_skirt_height * use_skirt;
 
     gl_Position = u_matrix * vec4(pos.xy, z, 1.0);
 

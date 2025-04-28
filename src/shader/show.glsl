@@ -30,7 +30,6 @@ uniform float mixAlpha;
 
 out vec4 fragColor;
 
-
 bool almostEqual(float a, float b){
     return abs(a - b) < 0.0001 ? true : false;
 }
@@ -46,9 +45,10 @@ void main() {
     }
     vec4 color = mix(color1, color2, alpha);
     fragColor = vec4(color);
-    // fragColor = vec4(color.rgb, color.a * 1.0);
 
-    // fragColor = vec4(vec3(color1), 0.3);
+
+    // fragColor = vec4(color.rgb, color.a * 0.7);
+    // fragColor = vec4(vec3(color1.r), alpha);
     // fragColor = color1;
 }
 

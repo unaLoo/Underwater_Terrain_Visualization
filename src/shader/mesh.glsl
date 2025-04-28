@@ -252,7 +252,6 @@ void main() {
     // outColor = vec4(v_height, v_hillshade, 0.0, 0.0);
     // outColor = vec4(v_height, v_meshNormal);
     outColor = vec4(v_height, v_meshNormal);
-
     // outColor = vec4(colorMap(uint(u_rand)%11u), 1.0);
 
 }

@@ -50,6 +50,7 @@ import surfaceNoTileCode from './shader/waterSurfaceNoTile.glsl'
 import showCode from './shader/show.glsl'
 import modelCode from './shader/model.glsl'
 import smoothingCode from './shader/smoothing.glsl'
+import depthRestoreCode from './shader/depthRestore.glsl'
 
 export default class TerrainByProxyTile {
 
@@ -80,14 +81,14 @@ export default class TerrainByProxyTile {
         this.exaggeration = 30.0
         this.withContour = 1.0
         this.withLighting = 1.0
-        this.mixAlpha = 0.4
+        this.mixAlpha = 0.0
         this.elevationRange = [-15.513999999999996, 4.3745000000000003]
         // this.elevationRange = [-15.514, 10.0]
         this.diffPower = 1.1
         this.use_skirt = 1.0
 
         this.shallowColor = [182, 153, 124]
-        this.deepColor = [22,26,33]
+        this.deepColor = [22, 26, 33]
 
 
         this.SamplerParams = [13.6, -11.5, 1.56, -22.4]
@@ -101,9 +102,9 @@ export default class TerrainByProxyTile {
 
         this.modelConfigs = [
             {
-                modelScale: 0.000005,
+                modelScale: 0.000001,
                 modelZRotate: 0.0,
-                modelPos: [120.33794466757358, 32.03551107103058],
+                modelPos: [120.2803920596891106, 34.3030449664098393],
             },
             {
                 modelScale: 0.000005,
@@ -224,8 +225,7 @@ export default class TerrainByProxyTile {
         this.surfaceNoTileProgram = createShaderFromCode(gl, surfaceNoTileCode)
         this.showProgram = createShaderFromCode(gl, showCode)
         this.modelProgram = createShaderFromCode(gl, modelCode)
-
-
+        this.depthRestoreProgram = createShaderFromCode(gl, depthRestoreCode)
 
 
 
@@ -347,6 +347,8 @@ export default class TerrainByProxyTile {
 
 
 
+
+
         await this.initDebug()
 
         this.map.painter.terrain.useVertexMorphing = false
@@ -367,14 +369,11 @@ export default class TerrainByProxyTile {
         this.frame++;
 
         const terrain = this.map.painter.terrain
-        // terrain._exaggeration = 30.0
         const tr = this.map.transform
 
-        // 远处的瓦片闪烁 --- mapbox有个projctionMatrixCache
-        // 下面这个导致闪烁，minElevation应该是当前视角下最低的瓦片的海拔高度
         // const projMatrix = updateProjMatrix.call(this.map.transform, this.elevationRange[0] * this.exaggeration)
         const minElevationInTils = getMinElevationBelowMSL(terrain, this.exaggeration)
-        const projMatrix = updateProjMatrix.call(this.map.transform, minElevationInTils)
+        const { projMatrix, mercatorMatrix } = updateProjMatrix.call(this.map.transform, minElevationInTils)
 
 
         const tileIDs = this.getTiles2()
@@ -385,186 +384,116 @@ export default class TerrainByProxyTile {
 
 
 
-
-
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Pass 0: generate mask texture
+        // Pass 1: terrain mesh pass 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.maskFbo)
-        gl.viewport(0.0, 0.0, this.canvasWidth, this.canvasHeight)
-        gl.clearColor(0.0, 0.0, 0.0, 0.0)
-        gl.clear(gl.COLOR_BUFFER_BIT)
-        gl.useProgram(this.maskProgram)
-        gl.bindVertexArray(this.maskVao)
-
-        gl.uniformMatrix4fv(gl.getUniformLocation(this.maskProgram, 'u_matrix'), false, matrix)
-        gl.drawElements(gl.TRIANGLES, this.maskElements, gl.UNSIGNED_SHORT, 0)
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-
-
-
-
-
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Pass 1: water surface normal pass 
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.surfaceNormFbo)
-        gl.viewport(0.0, 0.0, this.canvasWidth, this.canvasHeight)
-        gl.clearColor(0.0, 0.0, 0.0, 0.0)
-        gl.clear(gl.COLOR_BUFFER_BIT)
-        gl.useProgram(this.surfaceNormProgram)
-        gl.bindVertexArray(this.surfaceNormVAO)
-
-        gl.activeTexture(gl.TEXTURE0)
-        gl.bindTexture(gl.TEXTURE_2D, this.normalTexture1)
-        gl.activeTexture(gl.TEXTURE1)
-        gl.bindTexture(gl.TEXTURE_2D, this.normalTexture2)
-
-        gl.uniform1i(gl.getUniformLocation(this.surfaceNormProgram, 'u_normalTexture1'), 0)
-        gl.uniform1i(gl.getUniformLocation(this.surfaceNormProgram, 'u_normalTexture2'), 1)
-        gl.uniform1f(gl.getUniformLocation(this.surfaceNormProgram, 'u_time'), nowTime)
-        gl.uniform4fv(gl.getUniformLocation(this.surfaceNormProgram, 'SamplerParams'), this.SamplerParams)
-        gl.uniformMatrix4fv(gl.getUniformLocation(this.surfaceNormProgram, 'u_matrix'), false, matrix)
-
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-
-
-
-
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Pass 2: terrain mesh pass 
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.meshFbo)
-        gl.viewport(0.0, 0.0, this.canvasWidth, this.canvasHeight)
-
-        gl.clearColor(9999.0, 0.0, 0.0, 0.0)
-        gl.clear(gl.COLOR_BUFFER_BIT)
-
-        gl.disable(gl.BLEND)
-
-        gl.clear(gl.DEPTH_BUFFER_BIT)
-        gl.enable(gl.DEPTH_TEST)
-        gl.depthFunc(gl.LESS)
-
-        gl.useProgram(this.meshProgram);
-        // gl.bindVertexArray(this.meshVao);
-        gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_altitudeDegree'), this.altitudeDeg)
-        gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_azimuthDegree'), this.azimuthDeg)
-        gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_offset_x'), this.u_offset_x)
-        gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_offset_y'), this.u_offset_y)
-        gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'ep'), this.ep)
-        for (const coord of tileIDs) {
-
-            const tile = sourceCache.getTile(coord);
-            const z = tile.tileID.toUnwrapped().canonical.z
-
-            // if (z < 14) {
-            this.meshElements = this.meshElements_128
-            this.meshVao = this.meshVao_128
-            // } else if (z < 15) {
-            //     this.meshElements = this.meshElements_64
-            //     this.meshVao = this.meshVao_64
-            // } else {
-            //     this.meshElements = this.meshElements_32
-            //     this.meshVao = this.meshVao_32
-            // }
-            // this.meshElements = this.meshElements_64
-            // this.meshVao = this.meshVao_64
-            // this.meshElements = this.meshElements_32
-            // this.meshVao = this.meshVao_32
-            gl.bindVertexArray(this.meshVao);
-
-
-            // const prevDemTile = terrain.prevTerrainTileForTile[coord.key];
-            // const nextDemTile = terrain.terrainTileForTile[coord.key];
-            // if (demTileChanged(prevDemTile, nextDemTile)) {
-            //     console.log('dem tile changing')
-            // }
-
-            const proxyTileProjMatrix = coord.projMatrix
-            // const tileMatrix = tr.calculateProjMatrix(tile.tileID.toUnwrapped()) // 和上面一样的效果
-
-            const posMatrix = tr.calculatePosMatrix(tile.tileID.toUnwrapped(), tr.worldSize);
-            const tileMatrix = mat4.multiply(mat4.create(), projMatrix, posMatrix);
-            tr._projMatrixCache[tile.tileID.toUnwrapped().key] = new Float32Array(tileMatrix);
-
-
-            const uniformValues = {
-                'u_matrix': tileMatrix,
-                'u_skirt_height': skirt,
-                'u_exaggeration': this.exaggeration,
-                'u_dem_size': 514 - 2,
-            }
-            const demTile = this.demStore.get(coord.key)
-            if (!demTile) { continue }
-            const proxyId = tile.tileID.canonical;
-            const demId = demTile.tileID.canonical;
-            const demScaleBy = Math.pow(2, demId.z - proxyId.z);
-            uniformValues[`u_dem_tl`] = [proxyId.x * demScaleBy % 1, proxyId.y * demScaleBy % 1];
-            uniformValues[`u_dem_scale`] = demScaleBy;
-
-            // const drapedTexture = tile.texture //地图纹理
-            let demTexture = this.emptyDEMTexture
-            if (demTile.demTexture && demTile.demTexture.texture) {
-                demTexture = demTile.demTexture.texture
-                uniformValues.u_dem_size = demTile.demTexture.size[0] - 2
-            }
-
-            gl.activeTexture(gl.TEXTURE0)
-            gl.bindTexture(gl.TEXTURE_2D, demTexture)
-            gl.uniform1i(gl.getUniformLocation(this.meshProgram, 'float_dem_texture'), 0);
-            gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'use_skirt'), this.use_skirt)
-            gl.uniformMatrix4fv(gl.getUniformLocation(this.meshProgram, 'u_matrix'), false, uniformValues['u_matrix'])
-            gl.uniform2fv(gl.getUniformLocation(this.meshProgram, 'u_dem_tl'), uniformValues['u_dem_tl']);
-            gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_dem_size'), uniformValues['u_dem_size']);
-            gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_dem_scale'), uniformValues['u_dem_scale']);
-            gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_exaggeration'), uniformValues['u_exaggeration'])
-            gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_skirt_height'), uniformValues['u_skirt_height'])
-            gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_rand'), proxyId.x * proxyId.y * 2)
-
-            if (this.debugKey === 'l')
-                gl.drawElements(gl.LINES, this.meshElements, gl.UNSIGNED_SHORT, 0);
-            else
-                gl.drawElements(gl.TRIANGLES, this.meshElements, gl.UNSIGNED_SHORT, 0);
-
-        }
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-
-        this.finalMeshTexture = this.meshTexture
-
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Pass 3: smoothing pass 
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        if (this.smoothingPassCount > 0) {
-            let currentSmoothingSourceTexture = this.meshTexture
-            let currentSmoothingTargetFbo = this.smoothingFbo
-
-            gl.bindFramebuffer(gl.FRAMEBUFFER, currentSmoothingTargetFbo)
+        {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.meshFbo)
             gl.viewport(0.0, 0.0, this.canvasWidth, this.canvasHeight)
-            gl.clearColor(0.0, 0.0, 0.0, 0.0)
+
+            gl.clearColor(9999.0, 0.0, 0.0, 0.0)
             gl.clear(gl.COLOR_BUFFER_BIT)
+
             gl.disable(gl.BLEND)
 
-            gl.useProgram(this.smoothingProgram)
-            gl.bindTexture(gl.TEXTURE_2D, currentSmoothingSourceTexture)
-            gl.uniform1i(gl.getUniformLocation(this.smoothingProgram, 'u_texture'), 0)
-            gl.uniform2fv(gl.getUniformLocation(this.smoothingProgram, 'u_textureSize'), [this.canvasWidth, this.canvasHeight])
-            gl.uniform1fv(gl.getUniformLocation(this.smoothingProgram, 'u_kernel'), this.smoothingKernel)
-            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+            gl.clear(gl.DEPTH_BUFFER_BIT)
+            gl.enable(gl.DEPTH_TEST)
+            gl.depthFunc(gl.LESS)
+
+            gl.useProgram(this.meshProgram);
+            // gl.bindVertexArray(this.meshVao);
+            gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_altitudeDegree'), this.altitudeDeg)
+            gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_azimuthDegree'), this.azimuthDeg)
+            gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_offset_x'), this.u_offset_x)
+            gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_offset_y'), this.u_offset_y)
+            gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'ep'), this.ep)
+            for (const coord of tileIDs) {
+
+                const tile = sourceCache.getTile(coord);
+                const z = tile.tileID.toUnwrapped().canonical.z
+
+                // if (z < 14) {
+                this.meshElements = this.meshElements_128
+                this.meshVao = this.meshVao_128
+                // } else if (z < 15) {
+                //     this.meshElements = this.meshElements_64
+                //     this.meshVao = this.meshVao_64
+                // } else {
+                //     this.meshElements = this.meshElements_32
+                //     this.meshVao = this.meshVao_32
+                // }
+                // this.meshElements = this.meshElements_64
+                // this.meshVao = this.meshVao_64
+                // this.meshElements = this.meshElements_32
+                // this.meshVao = this.meshVao_32
+                gl.bindVertexArray(this.meshVao);
 
 
-            for (let i = 1; i < this.smoothingPassCount; i++) {
+                // const prevDemTile = terrain.prevTerrainTileForTile[coord.key];
+                // const nextDemTile = terrain.terrainTileForTile[coord.key];
+                // if (demTileChanged(prevDemTile, nextDemTile)) {
+                //     console.log('dem tile changing')
+                // }
 
-                currentSmoothingSourceTexture = i % 2 === 0 ? this.tempSmoothingTexture : this.smoothingTexture
-                currentSmoothingTargetFbo = i % 2 === 0 ? this.smoothingFbo : this.tempSmoothingFbo
+                const proxyTileProjMatrix = coord.projMatrix
+                // const tileMatrix = tr.calculateProjMatrix(tile.tileID.toUnwrapped()) // 和上面一样的效果
+
+                const posMatrix = tr.calculatePosMatrix(tile.tileID.toUnwrapped(), tr.worldSize);
+                const tileMatrix = mat4.multiply(mat4.create(), projMatrix, posMatrix);
+                tr._projMatrixCache[tile.tileID.toUnwrapped().key] = new Float32Array(tileMatrix);
+
+
+                const uniformValues = {
+                    'u_matrix': tileMatrix,
+                    'u_skirt_height': skirt,
+                    'u_exaggeration': this.exaggeration,
+                    'u_dem_size': 514 - 2,
+                }
+                const demTile = this.demStore.get(coord.key)
+                if (!demTile) { continue }
+                const proxyId = tile.tileID.canonical;
+                const demId = demTile.tileID.canonical;
+                const demScaleBy = Math.pow(2, demId.z - proxyId.z);
+                uniformValues[`u_dem_tl`] = [proxyId.x * demScaleBy % 1, proxyId.y * demScaleBy % 1];
+                uniformValues[`u_dem_scale`] = demScaleBy;
+
+                // const drapedTexture = tile.texture //地图纹理
+                let demTexture = this.emptyDEMTexture
+                if (demTile.demTexture && demTile.demTexture.texture) {
+                    demTexture = demTile.demTexture.texture
+                    uniformValues.u_dem_size = demTile.demTexture.size[0] - 2
+                }
+
+                gl.activeTexture(gl.TEXTURE0)
+                gl.bindTexture(gl.TEXTURE_2D, demTexture)
+                gl.uniform1i(gl.getUniformLocation(this.meshProgram, 'float_dem_texture'), 0);
+                gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'use_skirt'), this.use_skirt)
+                gl.uniformMatrix4fv(gl.getUniformLocation(this.meshProgram, 'u_matrix'), false, uniformValues['u_matrix'])
+                gl.uniform2fv(gl.getUniformLocation(this.meshProgram, 'u_dem_tl'), uniformValues['u_dem_tl']);
+                gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_dem_size'), uniformValues['u_dem_size']);
+                gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_dem_scale'), uniformValues['u_dem_scale']);
+                gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_exaggeration'), uniformValues['u_exaggeration'])
+                gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_skirt_height'), uniformValues['u_skirt_height'])
+                gl.uniform1f(gl.getUniformLocation(this.meshProgram, 'u_rand'), proxyId.x * proxyId.y * 2)
+
+                if (this.debugKey === 'l')
+                    gl.drawElements(gl.LINES, this.meshElements, gl.UNSIGNED_SHORT, 0);
+                else
+                    gl.drawElements(gl.TRIANGLES, this.meshElements, gl.UNSIGNED_SHORT, 0);
+
+            }
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+
+            this.finalMeshTexture = this.meshTexture
+
+
+            ///////////////////////////////////////////
+            // Pass 3.5: smoothing pass 
+            //////////////////////////////////////////
+            if (this.smoothingPassCount > 0) {
+                let currentSmoothingSourceTexture = this.meshTexture
+                let currentSmoothingTargetFbo = this.smoothingFbo
 
                 gl.bindFramebuffer(gl.FRAMEBUFFER, currentSmoothingTargetFbo)
                 gl.viewport(0.0, 0.0, this.canvasWidth, this.canvasHeight)
@@ -579,160 +508,265 @@ export default class TerrainByProxyTile {
                 gl.uniform1fv(gl.getUniformLocation(this.smoothingProgram, 'u_kernel'), this.smoothingKernel)
                 gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
 
+
+                for (let i = 1; i < this.smoothingPassCount; i++) {
+
+                    currentSmoothingSourceTexture = i % 2 === 0 ? this.tempSmoothingTexture : this.smoothingTexture
+                    currentSmoothingTargetFbo = i % 2 === 0 ? this.smoothingFbo : this.tempSmoothingFbo
+
+                    gl.bindFramebuffer(gl.FRAMEBUFFER, currentSmoothingTargetFbo)
+                    gl.viewport(0.0, 0.0, this.canvasWidth, this.canvasHeight)
+                    gl.clearColor(0.0, 0.0, 0.0, 0.0)
+                    gl.clear(gl.COLOR_BUFFER_BIT)
+                    gl.disable(gl.BLEND)
+
+                    gl.useProgram(this.smoothingProgram)
+                    gl.bindTexture(gl.TEXTURE_2D, currentSmoothingSourceTexture)
+                    gl.uniform1i(gl.getUniformLocation(this.smoothingProgram, 'u_texture'), 0)
+                    gl.uniform2fv(gl.getUniformLocation(this.smoothingProgram, 'u_textureSize'), [this.canvasWidth, this.canvasHeight])
+                    gl.uniform1fv(gl.getUniformLocation(this.smoothingProgram, 'u_kernel'), this.smoothingKernel)
+                    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+
+                }
+
+                this.finalMeshTexture = this.smoothingPassCount % 2 === 0 ? this.tempSmoothingTexture : this.smoothingTexture
+
+
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null)
             }
 
-            this.finalMeshTexture = this.smoothingPassCount % 2 === 0 ? this.tempSmoothingTexture : this.smoothingTexture
+        }
 
 
+
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Pass 2: generate mask texture
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.maskFbo)
+            gl.viewport(0.0, 0.0, this.canvasWidth, this.canvasHeight)
+            gl.clearColor(0.0, 0.0, 0.0, 0.0)
+            gl.clear(gl.COLOR_BUFFER_BIT)
+            gl.useProgram(this.maskProgram)
+            gl.bindVertexArray(this.maskVao)
+            // gl.bindTexture()
+            gl.activeTexture(gl.TEXTURE0)
+            gl.bindTexture(gl.TEXTURE_2D, this.meshDepthTexture)
+            gl.uniform1i(gl.getUniformLocation(this.maskProgram, 'depth_texture'), 0)
+            gl.uniformMatrix4fv(gl.getUniformLocation(this.maskProgram, 'u_matrix'), false, mercatorMatrix)
+            gl.drawElements(gl.TRIANGLES, this.maskElements, gl.UNSIGNED_SHORT, 0)
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+
+        }
+
+
+
+
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Pass 3: contour pass --> contourCanvasTexture 
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.contourFbo)
+            gl.viewport(0.0, 0.0, gl.canvas.width, gl.canvas.height)
+
+            gl.disable(gl.BLEND)
+
+            gl.useProgram(this.contourProgram)
+
+            gl.activeTexture(gl.TEXTURE0)
+            // if (this.debugKey === '1')
+            //     gl.bindTexture(gl.TEXTURE_2D, this.meshTexture)
+            // else
+            //     gl.bindTexture(gl.TEXTURE_2D, this.smoothingTexture)
+            gl.bindTexture(gl.TEXTURE_2D, this.finalMeshTexture)
+            gl.activeTexture(gl.TEXTURE1)
+            gl.bindTexture(gl.TEXTURE_2D, this.paletteTexture)
+            gl.activeTexture(gl.TEXTURE2)
+            gl.bindTexture(gl.TEXTURE_2D, this.maskTexture)
+
+
+            gl.uniform1i(gl.getUniformLocation(this.contourProgram, 'meshTexture'), 0)
+            gl.uniform1i(gl.getUniformLocation(this.contourProgram, 'paletteTexture'), 1)
+            gl.uniform1i(gl.getUniformLocation(this.contourProgram, 'maskTexture'), 2)
+            gl.uniform2fv(gl.getUniformLocation(this.contourProgram, 'e'), this.elevationRange)
+            gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'interval'), this.interval)
+            gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'withContour'), this.withContour)
+            gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'withLighting'), this.withLighting)
+            gl.uniform3fv(gl.getUniformLocation(this.contourProgram, 'LightPos'), this.LightPos)
+            gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'diffPower'), this.diffPower)
+            gl.uniform3fv(gl.getUniformLocation(this.contourProgram, 'shallowColor'), this.shallowColor)
+            gl.uniform3fv(gl.getUniformLocation(this.contourProgram, 'deepColor'), this.deepColor)
+            gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'u_threshold'), this.u_threshold)
+
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+
+        }
+
+
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Pass 4: water surface normal pass 
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        {
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.surfaceNormFbo)
+            gl.viewport(0.0, 0.0, this.canvasWidth, this.canvasHeight)
+            gl.clearColor(0.0, 0.0, 0.0, 0.0)
+            gl.clear(gl.COLOR_BUFFER_BIT)
+            gl.useProgram(this.surfaceNormProgram)
+            gl.bindVertexArray(this.surfaceNormVAO)
+
+            gl.activeTexture(gl.TEXTURE0)
+            gl.bindTexture(gl.TEXTURE_2D, this.normalTexture1)
+            gl.activeTexture(gl.TEXTURE1)
+            gl.bindTexture(gl.TEXTURE_2D, this.normalTexture2)
+
+            gl.uniform1i(gl.getUniformLocation(this.surfaceNormProgram, 'u_normalTexture1'), 0)
+            gl.uniform1i(gl.getUniformLocation(this.surfaceNormProgram, 'u_normalTexture2'), 1)
+            gl.uniform1f(gl.getUniformLocation(this.surfaceNormProgram, 'u_time'), nowTime)
+            gl.uniform4fv(gl.getUniformLocation(this.surfaceNormProgram, 'SamplerParams'), this.SamplerParams)
+            gl.uniformMatrix4fv(gl.getUniformLocation(this.surfaceNormProgram, 'u_matrix'), false, matrix)
+
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
             gl.bindFramebuffer(gl.FRAMEBUFFER, null)
         }
 
 
 
 
-
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Pass 3: water surface pass 
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.surfaceFbo)
-        gl.viewport(0.0, 0.0, this.canvasWidth, this.canvasHeight)
-        gl.clearColor(0.0, 0.0, 0.0, 0.0)
-        gl.clear(gl.COLOR_BUFFER_BIT)
-        gl.disable(gl.BLEND)
-
-        gl.useProgram(this.surfaceNoTileProgram);
-        gl.bindVertexArray(this.surfaceNormVAO)
-
-        gl.activeTexture(gl.TEXTURE0)
-        gl.bindTexture(gl.TEXTURE_2D, this.meshTexture)
-        gl.activeTexture(gl.TEXTURE1)
-        gl.bindTexture(gl.TEXTURE_2D, this.maskTexture)
-        gl.activeTexture(gl.TEXTURE2)
-        gl.bindTexture(gl.TEXTURE_2D, this.surfaceNormTexure)
-
-        gl.uniform1i(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_depethTexture'), 0)
-        gl.uniform1i(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_maskTexture'), 1)
-        gl.uniform1i(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_surfaceNormalTexture'), 2)
-        gl.uniform3fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_cameraPos'), cameraPos)
-        gl.uniform1f(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_time'), nowTime)
-        gl.uniform2fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_elevationRange'), this.elevationRange)
-        gl.uniform2fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_screenSize'), [this.canvasWidth, this.canvasHeight])
-        gl.uniform3fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'shallowColor'), this.shallowColor)
-        gl.uniform3fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'deepColor'), this.deepColor)
-        gl.uniform4fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'SamplerParams'), this.SamplerParams)
-        gl.uniform3fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'LightPos'), this.LightPos)
-        gl.uniform1f(gl.getUniformLocation(this.surfaceNoTileProgram, 'specularPower'), this.specularPower)
-        gl.uniformMatrix4fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_matrix'), false, matrix)
-        gl.uniform1f(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_threshold'), this.u_threshold)
-
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
-
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Pass 4: contour pass --> contourCanvasTexture 
+        // Pass 5: water surface pass 
         /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, this.contourFbo)
-        gl.viewport(0.0, 0.0, gl.canvas.width, gl.canvas.height)
+        {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, this.surfaceFbo)
+            gl.viewport(0.0, 0.0, this.canvasWidth, this.canvasHeight)
+            gl.clearColor(0.0, 0.0, 0.0, 0.0)
+            gl.clear(gl.COLOR_BUFFER_BIT)
+            gl.disable(gl.BLEND)
 
-        gl.disable(gl.BLEND)
+            gl.useProgram(this.surfaceNoTileProgram);
+            gl.bindVertexArray(this.surfaceNormVAO)
 
-        gl.useProgram(this.contourProgram)
+            gl.activeTexture(gl.TEXTURE0)
+            gl.bindTexture(gl.TEXTURE_2D, this.meshTexture)
+            gl.activeTexture(gl.TEXTURE1)
+            gl.bindTexture(gl.TEXTURE_2D, this.maskTexture)
+            gl.activeTexture(gl.TEXTURE2)
+            gl.bindTexture(gl.TEXTURE_2D, this.surfaceNormTexure)
 
-        gl.activeTexture(gl.TEXTURE0)
-        // if (this.debugKey === '1')
-        //     gl.bindTexture(gl.TEXTURE_2D, this.meshTexture)
-        // else
-        //     gl.bindTexture(gl.TEXTURE_2D, this.smoothingTexture)
-        gl.bindTexture(gl.TEXTURE_2D, this.finalMeshTexture)
-        gl.activeTexture(gl.TEXTURE1)
-        gl.bindTexture(gl.TEXTURE_2D, this.paletteTexture)
-        gl.activeTexture(gl.TEXTURE2)
-        gl.bindTexture(gl.TEXTURE_2D, this.maskTexture)
+            gl.uniform1i(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_depethTexture'), 0)
+            gl.uniform1i(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_maskTexture'), 1)
+            gl.uniform1i(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_surfaceNormalTexture'), 2)
+            gl.uniform3fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_cameraPos'), cameraPos)
+            gl.uniform1f(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_time'), nowTime)
+            gl.uniform2fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_elevationRange'), this.elevationRange)
+            gl.uniform2fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_screenSize'), [this.canvasWidth, this.canvasHeight])
+            gl.uniform3fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'shallowColor'), this.shallowColor)
+            gl.uniform3fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'deepColor'), this.deepColor)
+            gl.uniform4fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'SamplerParams'), this.SamplerParams)
+            gl.uniform3fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'LightPos'), this.LightPos)
+            gl.uniform1f(gl.getUniformLocation(this.surfaceNoTileProgram, 'specularPower'), this.specularPower)
+            gl.uniformMatrix4fv(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_matrix'), false, matrix)
+            gl.uniform1f(gl.getUniformLocation(this.surfaceNoTileProgram, 'u_threshold'), this.u_threshold)
 
-
-        gl.uniform1i(gl.getUniformLocation(this.contourProgram, 'meshTexture'), 0)
-        gl.uniform1i(gl.getUniformLocation(this.contourProgram, 'paletteTexture'), 1)
-        gl.uniform1i(gl.getUniformLocation(this.contourProgram, 'maskTexture'), 2)
-        gl.uniform2fv(gl.getUniformLocation(this.contourProgram, 'e'), this.elevationRange)
-        gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'interval'), this.interval)
-        gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'withContour'), this.withContour)
-        gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'withLighting'), this.withLighting)
-        gl.uniform3fv(gl.getUniformLocation(this.contourProgram, 'LightPos'), this.LightPos)
-        gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'diffPower'), this.diffPower)
-        gl.uniform3fv(gl.getUniformLocation(this.contourProgram, 'shallowColor'), this.shallowColor)
-        gl.uniform3fv(gl.getUniformLocation(this.contourProgram, 'deepColor'), this.deepColor)
-        gl.uniform1f(gl.getUniformLocation(this.contourProgram, 'u_threshold'), this.u_threshold)
-
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-
-
-
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Pass 5: final mixing show pass 
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-        gl.viewport(0.0, 0.0, gl.canvas.width, gl.canvas.height)
-
-        // gl.enable(gl.BLEND)
-        // gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-        gl.useProgram(this.showProgram)
-
-        gl.activeTexture(gl.TEXTURE0)
-        gl.bindTexture(gl.TEXTURE_2D, this.contourCanvasTexture)
-        // gl.bindTexture(gl.TEXTURE_2D, this.maskTexture)
-        // gl.bindTexture(gl.TEXTURE_2D, this.finalMeshTexture)
-        gl.activeTexture(gl.TEXTURE1)
-        gl.bindTexture(gl.TEXTURE_2D, this.surfaceCanvasTexture)
-        gl.uniform1i(gl.getUniformLocation(this.showProgram, 'showTexture1'), 0)
-        gl.uniform1i(gl.getUniformLocation(this.showProgram, 'showTexture2'), 1)
-        gl.uniform1f(gl.getUniformLocation(this.showProgram, 'mixAlpha'), this.mixAlpha)
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
-
-        // this.doDebug(this.maskTexture)
-        // this.doDebug(this.meshTexture)
-        // this.doDebug(this.surfaceCanvasTexture)
-        // this.doDebug(this.contourCanvasTexture)
-
-
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-        // Pass 3: Model Render Pass
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
-        gl.enable(gl.DEPTH_TEST)
-        gl.clear(gl.DEPTH_BUFFER_BIT)
-        // gl.enable(gl.CULL_FACE)
-        // gl.clearColor(0.2, 0.2, 0.2, 0.2)
-
-        gl.useProgram(this.modelProgram)
-        gl.uniformMatrix4fv(gl.getUniformLocation(this.modelProgram, 'uMatrix'), false, matrix)
-        gl.uniform3fv(gl.getUniformLocation(this.modelProgram, 'uLightPosition'), this.LightPos)
-
-        // for one model
-        this.models = new Array(this.modelConfigs.length)
-        for (let i = 0; i < this.modelConfigs.length; i++) {
-            const modelConfig = this.modelConfigs[i]
-            // forEach meshes, same meshes
-            this.meshes.forEach(mesh => {
-                let { modelMatrix, normalMatrix } = this.calcMatrixforModel(modelConfig, mesh, mesh.needRotate)
-                gl.uniformMatrix4fv(gl.getUniformLocation(this.modelProgram, 'uModelMatrix'), false, modelMatrix)
-                gl.uniformMatrix4fv(gl.getUniformLocation(this.modelProgram, 'uNormalMatrix'), false, normalMatrix)
-                gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, mesh.texture);
-                gl.bindVertexArray(mesh.vao);
-                gl.drawElements(gl.TRIANGLES, mesh.geometry.index.count, gl.UNSIGNED_INT, 0);
-            })
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
         }
 
+
+
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Pass 6: final mixing show pass 
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        {
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+            gl.viewport(0.0, 0.0, gl.canvas.width, gl.canvas.height)
+
+            // gl.enable(gl.BLEND)
+            // gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+            gl.useProgram(this.showProgram)
+
+            gl.activeTexture(gl.TEXTURE0)
+            gl.bindTexture(gl.TEXTURE_2D, this.contourCanvasTexture)
+            // gl.bindTexture(gl.TEXTURE_2D, this.maskTexture)
+            // gl.bindTexture(gl.TEXTURE_2D, this.finalMeshTexture)
+            gl.activeTexture(gl.TEXTURE1)
+            gl.bindTexture(gl.TEXTURE_2D, this.surfaceCanvasTexture)
+            gl.uniform1i(gl.getUniformLocation(this.showProgram, 'showTexture1'), 0)
+            gl.uniform1i(gl.getUniformLocation(this.showProgram, 'showTexture2'), 1)
+            gl.uniform1f(gl.getUniformLocation(this.showProgram, 'mixAlpha'), this.mixAlpha)
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+
+            // this.doDebug(this.maskTexture)
+            // this.doDebug(this.meshTexture)
+            // this.doDebug(this.surfaceCanvasTexture)
+            // this.doDebug(this.contourCanvasTexture)
+        }
+
+
+
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Pass 7: Model Render Pass
+        /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        // Pass 7.1: Depth Restore
+        {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+
+            gl.colorMask(false, false, false, false)
+            gl.depthMask(true)
+
+            gl.enable(gl.DEPTH_TEST)
+            gl.clear(gl.DEPTH_BUFFER_BIT)
+
+            gl.useProgram(this.depthRestoreProgram)
+            gl.activeTexture(gl.TEXTURE0)
+            gl.bindTexture(gl.TEXTURE_2D, this.meshDepthTexture)
+            gl.uniform1i(gl.getUniformLocation(this.depthRestoreProgram, 'depthTexture'), 0)
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+
+            // 恢复color输出
+            gl.colorMask(true, true, true, true);
+        }
+
+        // Pass 7.2: Model Pass
+        {
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
+            gl.enable(gl.DEPTH_TEST)
+
+            gl.useProgram(this.modelProgram)
+            gl.uniformMatrix4fv(gl.getUniformLocation(this.modelProgram, 'uMatrix'), false, mercatorMatrix)
+            gl.uniform3fv(gl.getUniformLocation(this.modelProgram, 'uLightPosition'), this.LightPos)
+
+            // for one model
+            this.models = new Array(this.modelConfigs.length)
+            for (let i = 0; i < this.modelConfigs.length; i++) {
+                const modelConfig = this.modelConfigs[i]
+                // forEach meshes, same meshes
+                this.meshes.forEach(mesh => {
+                    let { modelMatrix, normalMatrix } = this.calcMatrixforModel(modelConfig, mesh, mesh.needRotate)
+                    gl.uniformMatrix4fv(gl.getUniformLocation(this.modelProgram, 'uModelMatrix'), false, modelMatrix)
+                    gl.uniformMatrix4fv(gl.getUniformLocation(this.modelProgram, 'uNormalMatrix'), false, normalMatrix)
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, mesh.texture);
+                    gl.bindVertexArray(mesh.vao);
+                    gl.drawElements(gl.TRIANGLES, mesh.geometry.index.count, gl.UNSIGNED_INT, 0);
+                })
+            }
+
+        }
 
 
 
@@ -1066,10 +1100,12 @@ function updateProjMatrix(minElevation) {
     // The mercatorMatrix can be used to transform points from mercator coordinates
     // ([0, 0] nw, [1, 1] se) to GL coordinates. / zUnit compensates for scaling done in worldToCamera.
     // @ts-expect-error - TS2322 - Type 'mat4' is not assignable to type 'number[]'. | TS2345 - Argument of type 'number[] | Float32Array' is not assignable to parameter of type 'ReadonlyMat4'.
-    this.mercatorMatrix = mat4.scale([], m, [this.worldSize, this.worldSize, this.worldSize / zUnit, 1.0]);
+    const mercatorMatrix = mat4.scale([], m, [this.worldSize, this.worldSize, this.worldSize / zUnit, 1.0]);
 
-    // this.projMatrix = m;
-    return m
+    return {
+        projMatrix: m,
+        mercatorMatrix,
+    }
 }
 
 function getProjectionInterpolationT(projection, zoom, width, height, maxSize = Infinity) {

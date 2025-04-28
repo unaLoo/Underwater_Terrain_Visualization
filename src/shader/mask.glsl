@@ -6,6 +6,7 @@
 
 layout(location = 0) in vec4 aPosition;
 
+
 out vec2 SSpos;
 
 float mercatorXfromLng(float lng) {
@@ -22,20 +23,31 @@ uniform mat4 u_matrix;
 
 void main() {
     vec4 CSpos = u_matrix * vec4(mercatorFromLngLat(aPosition.xy), 0.0, 1.0);
-    SSpos = CSpos.xy / CSpos.w * 0.5 + 0.5;
     gl_Position = CSpos;
+    SSpos = CSpos.xy / CSpos.w * 0.5 + 0.5;
 }
 
 #endif
 #ifdef FRAGMENT_SHADER
 precision lowp float;
 
+uniform sampler2D depth_texture;
 in vec2 SSpos;
 
 out float FragColor;
 void main() {
-    // FragColor = vec4(SSpos,0.0,1.0);
+
     FragColor = 1.0;
+
+    // float meshDepth = texture(depth_texture, SSpos).r;
+    // float fragDepth = gl_FragCoord.z;
+
+    // if( fragDepth - meshDepth > 0.001) {
+    //     FragColor = 0.0;
+    //     return;
+    // }
+    // FragColor = 1.0;
+    // FragColor = meshDepth;
 
 }
 
